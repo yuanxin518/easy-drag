@@ -16,5 +16,5 @@
         "noEmit": true,
         "jsx": "react-jsx"
     },
-    "include": ["src", "src/core"]
+    "include": ["src", "src/core", "src/core/renderer/painter.ts"]
 }
