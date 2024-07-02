@@ -4,7 +4,7 @@ import {
     initializeContainer,
     RendererType,
 } from "./core/renderer";
-import { testProperty } from ".";
+import { testProperty, testProperty2 } from ".";
 
 const App = () => {
     const isRenderBase = useRef(false);
@@ -23,7 +23,8 @@ const App = () => {
     useEffect(() => {
         if (containerRef.current) {
             baseContainer?.addChildren(testProperty);
-            baseContainer?.addChildren(testProperty);
+
+            baseContainer?.addChildren(testProperty2);
             baseContainer?.drawableRender();
         }
     }, [baseContainer]);

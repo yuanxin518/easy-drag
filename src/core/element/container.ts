@@ -1,9 +1,9 @@
 export type ContainerProperty = {
-    position?: {
+    position: {
         x: number;
         y: number;
     };
-    size?: {
+    size: {
         width: number;
         height: number;
     };

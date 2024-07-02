@@ -26,3 +26,17 @@ export const testProperty = Renderer({
         backgroundColor: "rgb(0,0,0)",
     },
 });
+
+export const testProperty2 = Renderer({
+    position: {
+        x: 80,
+        y: 10,
+    },
+    size: {
+        width: 50,
+        height: 50,
+    },
+    style: {
+        backgroundColor: "rgb(0,0,0)",
+    },
+});
