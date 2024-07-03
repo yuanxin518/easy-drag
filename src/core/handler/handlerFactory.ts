@@ -1,3 +1,5 @@
+import { EventNodeType } from "./interactive";
+
 export type HandleNodesType = {
     value: (string | number)[];
 };
@@ -24,7 +26,10 @@ export const NodeFactory = () => {
         return interactiveInstance;
     };
 
-    const genNodes = (nodeWidth: number, nodeColor: string) => {
+    const genNodes = (
+        nodeWidth: number,
+        nodeColor: string
+    ): EventNodeType[] => {
         return HANDLER_NODES.map((nodeProperty) => {
             const {
                 value: [left, top, transX, transY],

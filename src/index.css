@@ -1,5 +1,30 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root,
+.page {
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+
 .container {
   width: 500px;
   height: 500px;
   background-color: rgba(0, 0, 0, 0.05);
+}
+
+.info {
+  position: fixed;
+  right: 0;
+  height: 100%;
+  width: 30%;
+  top: 0;
+  background-color: rgba(0, 0, 0, 0.08);
 }

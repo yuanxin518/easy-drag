@@ -1,14 +1,11 @@
 import { ContainerProperty, ElementContainer } from "../element/container";
-import { HandleNodesType } from "../handler/handlerFactory";
-import {
-    interactiveHandler,
-    InteractiveInstance,
-} from "../handler/interactive";
+import { EventExtraType, EventNodeType, interactiveHandler, InteractiveInstance } from "../handler/interactive";
+import { interacitiveMonitor, MonitorAdapterInstance, MonitorData } from "../handler/monitor";
 import { extractCanvas } from "../utils/extractCanvas";
 
 export type ContainerTypeSupports = HTMLDivElement;
 
-type RendererContext = {
+export type RendererContext = {
     id: string;
     isBase?: boolean;
     containerProperty: null | ContainerProperty;
@@ -23,6 +20,8 @@ export type RendererType = {
     bindContainer: (container: ContainerTypeSupports, isBase?: boolean) => void;
     addChildren: (renderer: RendererType) => void;
     drawableRender: () => void;
+    addMonitor: (monitorAdapter: MonitorAdapterInstance) => void;
+    interactiveInstance: InteractiveInstance | null;
 };
 
 export const initializeContainer = (baseContainer: ContainerTypeSupports) => {
@@ -41,6 +40,8 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     let canvasElement: HTMLCanvasElement | null = null; //内容渲染层
     let interactiveInstance: InteractiveInstance | null = null; //交互层
 
+    let lastInteractiveContainerId: string | null = null;
+    const monitor = interacitiveMonitor();
     const renderList = new Map<string, ContainerProperty>();
     const context: RendererContext = {
         id: crypto.randomUUID(),
@@ -57,10 +58,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * @param container
      * @param isBase 是否是根节点
      */
-    const bindContainer = (
-        container: ContainerTypeSupports,
-        isBase = false
-    ) => {
+    const bindContainer = (container: ContainerTypeSupports, isBase = false) => {
         context.boundContainer = container;
         context.isBase = isBase;
 
@@ -111,28 +109,28 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             const canvasPos = canvasElement?.getBoundingClientRect();
             const offsetXToCanvas = event.clientX - (canvasPos?.left || 0);
             const offsetYToCanvas = event.clientY - (canvasPos?.top || 0);
-            const targetProperties = findLastRenderContainer(
-                offsetXToCanvas,
-                offsetYToCanvas
-            );
+            const targetProperties = findLastRenderContainer(offsetXToCanvas, offsetYToCanvas);
 
             if (targetProperties.length === 0) return;
+
             const topTarget = targetProperties[0];
-            interactiveInstance.surroundContainer(topTarget);
+            lastInteractiveContainerId = topTarget.id;
+            if (!topTarget) return;
+            interactiveInstance.surroundContainer(topTarget.id, topTarget.containerProperty);
         };
     };
 
     const bindInteractiveHandler = () => {
         console.log("绑定交互处理器", interactiveInstance);
-        const mousedownCallback = (
-            nodeProperty?: HandleNodesType,
-            node?: HTMLDivElement,
-            event?: MouseEvent
-        ) => {
-            if (!nodeProperty) return;
-            const { value } = nodeProperty;
-            const [left, top, translateX, translateY] = value;
+        const mousedownCallback = (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => {
+            if (!nodeInfo || !extraInfo) return;
+            const { nodeProperty, node } = nodeInfo;
+            const { interactiveContainerId } = extraInfo;
+            const [left, top, translateX, translateY] = nodeProperty.value;
 
+            if (interactiveInstance) {
+                interactiveInstance.interactiveContainerId = interactiveContainerId;
+            }
             if (left === 0 && top === 0) {
                 console.log("左上", node);
             } else if (left !== 0 && top === 0) {
@@ -142,6 +140,8 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             } else {
                 console.log("右下", node);
             }
+
+            sendMonitorData();
         };
 
         interactiveInstance?.bindNodeEventCallback({
@@ -154,11 +154,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * @param property
      */
     const addChildren = (renderer: RendererType) => {
-        if (
-            context.children.findIndex(
-                (item) => item.context.id === renderer.context.id
-            ) === -1
-        ) {
+        if (context.children.findIndex((item) => item.context.id === renderer.context.id) === -1) {
             context.children.push(renderer);
         }
     };
@@ -180,7 +176,6 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             });
         }
         parseContainer(context);
-
         render();
     };
 
@@ -194,26 +189,18 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             const moveToX = property.position?.x || 0;
             const moveToY = property.position?.y || 0;
             ctx.fillStyle = property.style?.backgroundColor || "rgb(200,0,0)";
-            ctx.fillRect(
-                moveToX,
-                moveToY,
-                property.size?.width || 0,
-                property.size?.height || 0
-            );
+            ctx.fillRect(moveToX, moveToY, property.size?.width || 0, property.size?.height || 0);
         });
     };
 
     /**
      * 根据点，找出最上层的容器
      */
-    const findLastRenderContainer = (x: number, y: number) => {
-        const targetIds: ContainerProperty[] = [];
+    const findLastRenderContainer = (x: number, y: number): Pick<RendererContext, "id" | "containerProperty">[] => {
+        const targetList = [];
         const renderListEntries = renderList.entries();
         for (let i = 0; i < renderList.size; i++) {
-            const [id, property] = renderListEntries.next().value as [
-                string,
-                ContainerProperty
-            ];
+            const [id, property] = renderListEntries.next().value as [string, ContainerProperty];
 
             const isBase = context.id === id;
             const sx = property.position.x;
@@ -222,10 +209,26 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             const ey = property.position.y + property.size.height;
             // 判断在内部
             if (!isBase && sx <= x && sy <= y && ex > x && ey > y) {
-                targetIds.unshift(property);
+                targetList.unshift({
+                    id,
+                    containerProperty: property,
+                });
             }
         }
-        return targetIds;
+        return targetList;
+    };
+
+    const addMonitor = (monitorAdapter: MonitorAdapterInstance) => {
+        monitor.addMonitor(monitorAdapter);
+    };
+
+    /**
+     * 在更新后调用。将数据暴露给所有Monitor
+     */
+    const sendMonitorData = () => {
+        const sendData: MonitorData = {};
+        lastInteractiveContainerId && (sendData["currentContainerId"] = lastInteractiveContainerId);
+        monitor.updateData(sendData);
     };
 
     return {
@@ -233,6 +236,8 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         bindContainer,
         drawableRender,
         addChildren,
+        addMonitor,
+        interactiveInstance,
     };
 };
 
