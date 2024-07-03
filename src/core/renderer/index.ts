@@ -40,7 +40,6 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     let canvasElement: HTMLCanvasElement | null = null; //内容渲染层
     let interactiveInstance: InteractiveInstance | null = null; //交互层
 
-    let lastInteractiveContainerId: string | null = null;
     const monitor = interacitiveMonitor();
     const renderList = new Map<string, ContainerProperty>();
     const context: RendererContext = {
@@ -114,10 +113,10 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             if (targetProperties.length === 0) return;
 
             const topTarget = targetProperties[0];
-            lastInteractiveContainerId = topTarget.id;
+            interactiveInstance.bindInteractiveContainerId(topTarget.id);
+
             if (!topTarget) return;
             interactiveInstance.surroundContainer(topTarget.id, topTarget.containerProperty);
-
             sendMonitorData();
         };
     };
@@ -127,12 +126,8 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         const mousedownCallback = (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => {
             if (!nodeInfo || !extraInfo) return;
             const { nodeProperty, node } = nodeInfo;
-            const { interactiveContainerId } = extraInfo;
             const [left, top, translateX, translateY] = nodeProperty.value;
 
-            if (interactiveInstance) {
-                interactiveInstance.interactiveContainerId = interactiveContainerId;
-            }
             if (left === 0 && top === 0) {
                 console.log("左上", node);
             } else if (left !== 0 && top === 0) {
@@ -227,6 +222,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      */
     const sendMonitorData = () => {
         const sendData: MonitorData = {};
+        const lastInteractiveContainerId = interactiveInstance?.interactiveContainerId;
         if (lastInteractiveContainerId) {
             sendData["currentContainerId"] = lastInteractiveContainerId;
             sendData["currentContainerProperty"] = renderList.get(lastInteractiveContainerId);
