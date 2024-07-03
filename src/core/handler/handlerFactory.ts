@@ -21,15 +21,16 @@ const HANDLER_NODES: HandleNodesType[] = [
 export const NodeFactory = () => {
     const genContainer = () => {
         const interactiveInstance = document.createElement("div");
-        interactiveInstance.style.position = "absolute";
-        interactiveInstance.style.display = "none";
+
+        Object.assign(interactiveInstance.style, {
+            position: "absolute",
+            display: "none",
+            "pointer-events": "none",
+        });
         return interactiveInstance;
     };
 
-    const genNodes = (
-        nodeWidth: number,
-        nodeColor: string
-    ): EventNodeType[] => {
+    const genNodes = (nodeWidth: number, nodeColor: string): EventNodeType[] => {
         return HANDLER_NODES.map((nodeProperty) => {
             const {
                 value: [left, top, transX, transY],
@@ -45,6 +46,7 @@ export const NodeFactory = () => {
                 "border-radius": "5px",
                 transform: `translate(${transX}, ${transY})`,
                 cursor: "pointer",
+                "pointer-events": "all",
             });
             return {
                 nodeProperty,
