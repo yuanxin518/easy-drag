@@ -1,4 +1,5 @@
 import { RendererContext } from "../renderer";
+import initializeInteractiveEventsInfo, { InteractiveEventsInfoType } from "./handleEvents";
 import { HandleNodesType, NodeFactory } from "./handlerFactory";
 export type EventNodeType = {
     node: HTMLDivElement;
@@ -11,15 +12,18 @@ export type EventExtraType = {
 
 type InteractiveHandler = (
     container: HTMLDivElement,
-    canvas: HTMLCanvasElement
+    canvas: HTMLCanvasElement,
+    sendMonitorData: () => void
 ) => {
     surroundContainer: (id: RendererContext["id"], property: RendererContext["containerProperty"]) => void;
     bindNodeEventCallback: (callbacks: { mousedownCallback: (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => void }) => void;
     interactiveContainerId: null | string;
+    bindContainerEvents: () => void;
     bindInteractiveContainerId: (id: string) => void;
+    interactiveEventsInfo: InteractiveEventsInfoType;
 };
 
-export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement, canvas: HTMLCanvasElement) => {
+export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement, canvas: HTMLCanvasElement, sendMonitorData: () => void) => {
     const BORDER_WIDTH = 1;
     const BORDER_COLOR = "skyblue";
     const HANDLE_NODE_WIDTH = 6;
@@ -28,6 +32,8 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         baseOffsetY: canvas.offsetTop,
     };
     let interactiveContainerId: string | null = null;
+    // 记录交互状态
+    const interactiveEventsInfo = initializeInteractiveEventsInfo();
 
     const { genNodes, genContainer } = NodeFactory();
     // 初始化容器
@@ -64,14 +70,31 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
     };
 
     /**
+     * 给渲染最外层容器绑定事件处理，用来控制节点点击状态等
+     */
+    const bindContainerEvents = () => {
+        container.onmousedown = (event) => {
+            event.preventDefault();
+        };
+        container.onmouseup = () => {
+            if (interactiveEventsInfo.isMousedown) {
+                interactiveEventsInfo.isMousedown = false;
+            }
+            sendMonitorData();
+        };
+    };
+
+    /**
      * 为可操作节点绑定事件，用来操控位置大小变化等
      */
     const bindNodeEventCallback = (callbacks: { mousedownCallback: (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => void }) => {
         Array.from(nodes).forEach((eventNode, index) => {
             eventNode.node.onmousedown = (event: MouseEvent) => {
+                interactiveEventsInfo.isMousedown = true;
                 callbacks.mousedownCallback(event, eventNode, {
                     interactiveContainerId,
                 });
+                sendMonitorData();
             };
         });
     };
@@ -80,6 +103,8 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         {
             surroundContainer,
             bindNodeEventCallback,
+            bindContainerEvents,
+            interactiveEventsInfo,
             bindInteractiveContainerId,
             interactiveContainerId,
         },

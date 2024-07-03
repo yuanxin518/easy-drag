@@ -44,19 +44,22 @@ const App = () => {
         <>
             <div className="container" ref={containerRef}></div>
             <div className="info">
-                <PropertyItem property={[["当前选中控制节点所在容器id", monitorData?.currentContainerId]]} />
+                <PropertyItem type="input" property={[["当前选中控制节点所在容器id", monitorData?.currentContainerId]]} />
                 <PropertyItem
+                    type="input"
                     property={[
                         ["距离左边界(px)", monitorData?.currentContainerProperty?.position.x],
                         ["距离上边界(px)", monitorData?.currentContainerProperty?.position.y],
                     ]}
                 />
                 <PropertyItem
+                    type="input"
                     property={[
                         ["宽度(px)", monitorData?.currentContainerProperty?.size.width],
                         ["高度(px)", monitorData?.currentContainerProperty?.size.height],
                     ]}
                 />
+                <PropertyItem type="status" property={[["是否交互", monitorData?.interactiveInfo?.isMousedown]]} />
             </div>
         </>
     );

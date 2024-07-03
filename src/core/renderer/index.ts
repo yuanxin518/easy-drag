@@ -1,5 +1,6 @@
 import { ContainerProperty, ElementContainer } from "../element/container";
-import { EventExtraType, EventNodeType, interactiveHandler, InteractiveInstance } from "../handler/interactive";
+import { mousedownCallback } from "../handler/handleEvents";
+import { interactiveHandler, InteractiveInstance } from "../handler/interactive";
 import { interacitiveMonitor, MonitorAdapterInstance, MonitorData } from "../handler/monitor";
 import { extractCanvas } from "../utils/extractCanvas";
 
@@ -77,7 +78,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             markRender();
 
             // 初始化交互层
-            interactiveInstance = interactiveHandler(container, canvasElement);
+            interactiveInstance = interactiveHandler(container, canvasElement, sendMonitorData);
             bindInteractiveHandler();
 
             // 初始化容器参数
@@ -123,22 +124,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
 
     const bindInteractiveHandler = () => {
         console.log("绑定交互处理器", interactiveInstance);
-        const mousedownCallback = (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => {
-            if (!nodeInfo || !extraInfo) return;
-            const { nodeProperty, node } = nodeInfo;
-            const [left, top, translateX, translateY] = nodeProperty.value;
-
-            if (left === 0 && top === 0) {
-                console.log("左上", node);
-            } else if (left !== 0 && top === 0) {
-                console.log("右上", node);
-            } else if (left === 0 && top !== 0) {
-                console.log("左下", node);
-            } else {
-                console.log("右下", node);
-            }
-        };
-
+        interactiveInstance?.bindContainerEvents();
         interactiveInstance?.bindNodeEventCallback({
             mousedownCallback,
         });
@@ -221,11 +207,16 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * 在更新后调用。将数据暴露给所有Monitor
      */
     const sendMonitorData = () => {
-        const sendData: MonitorData = {};
+        const sendData: MonitorData = {
+            interactiveInfo: interactiveInstance?.interactiveEventsInfo,
+        };
         const lastInteractiveContainerId = interactiveInstance?.interactiveContainerId;
+
         if (lastInteractiveContainerId) {
-            sendData["currentContainerId"] = lastInteractiveContainerId;
-            sendData["currentContainerProperty"] = renderList.get(lastInteractiveContainerId);
+            Object.assign(sendData, {
+                currentContainerId: lastInteractiveContainerId,
+                currentContainerProperty: renderList.get(lastInteractiveContainerId),
+            });
         }
 
         monitor.updateData(sendData);
