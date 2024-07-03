@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ContainerTypeSupports, initializeContainer, RendererType } from "./core/renderer";
 import { testProperty, testProperty2 } from ".";
 import { MonitorData, useReactMonitor } from "./core/handler/monitor";
+import PropertyItem from "./core/component/propertyItem";
 
 const App = () => {
     const isRenderBase = useRef(false);
@@ -43,8 +44,19 @@ const App = () => {
         <>
             <div className="container" ref={containerRef}></div>
             <div className="info">
-                <p>当前选中容器id:{monitorData?.currentContainerId}</p>
-                <p>当前信息:{monitorData?.currentContainerProperty?.position.x}</p>
+                <PropertyItem property={[["当前选中控制节点所在容器id", monitorData?.currentContainerId]]} />
+                <PropertyItem
+                    property={[
+                        ["距离左边界(px)", monitorData?.currentContainerProperty?.position.x],
+                        ["距离上边界(px)", monitorData?.currentContainerProperty?.position.y],
+                    ]}
+                />
+                <PropertyItem
+                    property={[
+                        ["宽度(px)", monitorData?.currentContainerProperty?.size.width],
+                        ["高度(px)", monitorData?.currentContainerProperty?.size.height],
+                    ]}
+                />
             </div>
         </>
     );

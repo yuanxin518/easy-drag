@@ -33,7 +33,7 @@ export const testProperty2 = Renderer({
         y: 10,
     },
     size: {
-        width: 50,
+        width: 80,
         height: 50,
     },
     style: {

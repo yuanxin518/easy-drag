@@ -117,6 +117,8 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             lastInteractiveContainerId = topTarget.id;
             if (!topTarget) return;
             interactiveInstance.surroundContainer(topTarget.id, topTarget.containerProperty);
+
+            sendMonitorData();
         };
     };
 
@@ -140,8 +142,6 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             } else {
                 console.log("右下", node);
             }
-
-            sendMonitorData();
         };
 
         interactiveInstance?.bindNodeEventCallback({
@@ -227,8 +227,11 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      */
     const sendMonitorData = () => {
         const sendData: MonitorData = {};
-        lastInteractiveContainerId && (sendData["currentContainerId"] = lastInteractiveContainerId);
-        lastInteractiveContainerId && (sendData["currentContainerProperty"] = renderList.get(lastInteractiveContainerId));
+        if (lastInteractiveContainerId) {
+            sendData["currentContainerId"] = lastInteractiveContainerId;
+            sendData["currentContainerProperty"] = renderList.get(lastInteractiveContainerId);
+        }
+
         monitor.updateData(sendData);
     };
 

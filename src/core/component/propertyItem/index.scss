@@ -1,0 +1,13 @@
+.property_item {
+    &__group {
+        padding-bottom: 8px;
+        display: flex;
+        flex-direction: row;
+
+        gap: 10px;
+    }
+
+    &__item {
+        flex: 1;
+    }
+}
