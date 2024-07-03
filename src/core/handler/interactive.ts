@@ -15,7 +15,8 @@ type InteractiveHandler = (
 ) => {
     surroundContainer: (id: RendererContext["id"], property: RendererContext["containerProperty"]) => void;
     bindNodeEventCallback: (callbacks: { mousedownCallback: (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => void }) => void;
-    interactiveContainerId: string | null;
+    interactiveContainerId: null | string;
+    bindInteractiveContainerId: (id: string) => void;
 };
 
 export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement, canvas: HTMLCanvasElement) => {
@@ -38,14 +39,20 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         interactiveInstance.append(node);
     });
 
+    const bindInteractiveContainerId = (id: string) => {
+        interactiveContainerId = id;
+    };
+
+    const getInteractiveContainerId = () => {
+        return interactiveContainerId;
+    };
+
     /**
      * 调用后，将操控容器渲染到指定property的渲染位置。在每次更新canvas的时候调用。
      * @param property
      */
     const surroundContainer = (id: RendererContext["id"], property: RendererContext["containerProperty"]) => {
         if (!property) return;
-        interactiveContainerId = id;
-
         Object.assign(interactiveInstance.style, {
             left: `${property.position.x + baseProperty.baseOffsetX}px`,
             top: `${property.position.y + baseProperty.baseOffsetY}px`,
@@ -69,11 +76,21 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         });
     };
 
-    return {
-        surroundContainer,
-        bindNodeEventCallback,
-        interactiveContainerId,
-    };
+    return new Proxy(
+        {
+            surroundContainer,
+            bindNodeEventCallback,
+            bindInteractiveContainerId,
+            interactiveContainerId,
+        },
+        {
+            get: (obj, prop) => {
+                if (prop === "interactiveContainerId") {
+                    return getInteractiveContainerId();
+                }
+                return (obj as { [index: string | symbol]: InteractiveInstance[keyof InteractiveInstance] })[prop];
+            },
+        }
+    );
 };
-
 export type InteractiveInstance = ReturnType<InteractiveHandler>;
