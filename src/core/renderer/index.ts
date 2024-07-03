@@ -228,6 +228,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     const sendMonitorData = () => {
         const sendData: MonitorData = {};
         lastInteractiveContainerId && (sendData["currentContainerId"] = lastInteractiveContainerId);
+        lastInteractiveContainerId && (sendData["currentContainerProperty"] = renderList.get(lastInteractiveContainerId));
         monitor.updateData(sendData);
     };
 

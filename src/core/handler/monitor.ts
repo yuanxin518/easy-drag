@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { ContainerProperty } from "../element/container";
 
 export type MonitorAdapter = (callback: (data: MonitorData) => void) => {
     updateMonitorData: (data: MonitorData) => void;
@@ -21,6 +22,7 @@ export { useReactMonitor };
 
 export type MonitorData = {
     currentContainerId?: string;
+    currentContainerProperty?: ContainerProperty;
 };
 
 type InteractiveMonitor = {

@@ -44,7 +44,7 @@ const App = () => {
             <div className="container" ref={containerRef}></div>
             <div className="info">
                 <p>当前选中容器id:{monitorData?.currentContainerId}</p>
-                <p>当前信息:${}</p>
+                <p>当前信息:{monitorData?.currentContainerProperty?.position.x}</p>
             </div>
         </>
     );
