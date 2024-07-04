@@ -1,7 +1,7 @@
-import { Input, Switch, Typography } from "@douyinfe/semi-ui";
+import { Input, Switch, Tag, Typography } from "@douyinfe/semi-ui";
 import "./index.scss";
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 type TextType = string | number | undefined;
 type InputItem = { type: "input"; property: [string, TextType][] };
@@ -31,4 +31,22 @@ const PropertyItem = (params: PropertyItemParams) => {
     );
 };
 
-export default PropertyItem;
+const PropertyGroup = (props: { children: JSX.Element | JSX.Element[]; title: string }) => {
+    const { title, children } = props;
+    return (
+        <div className="property_group">
+            <Tag
+                color="cyan"
+                size="large"
+                style={{
+                    marginBottom: 10,
+                }}
+            >
+                {title}
+            </Tag>
+            {children}
+        </div>
+    );
+};
+
+export { PropertyItem, PropertyGroup };

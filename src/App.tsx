@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ContainerTypeSupports, initializeContainer, RendererType } from "./core/renderer";
 import { testProperty, testProperty2 } from ".";
 import { MonitorData, useReactMonitor } from "./core/handler/monitor";
-import PropertyItem from "./core/component/propertyItem";
+import { PropertyItem, PropertyGroup } from "./core/component/propertyItem";
 
 const App = () => {
     const isRenderBase = useRef(false);
@@ -99,46 +99,52 @@ const App = () => {
         <>
             <div className="container" ref={containerRef}></div>
             <div className="info">
-                <PropertyItem type="input" property={[["当前选中控制节点所在容器id", monitorInfo?.containerId]]} />
-                <PropertyItem
-                    type="input"
-                    property={[
-                        ["距离左边界(px)", monitorInfo?.leftToScreen],
-                        ["距离上边界(px)", monitorInfo?.topToScreen],
-                    ]}
-                />
-                <PropertyItem
-                    type="input"
-                    property={[
-                        ["宽度(px)", monitorInfo?.containerWidth],
-                        ["高度(px)", monitorInfo?.containerHeight],
-                    ]}
-                />
-                <PropertyItem type="status" property={[["是否交互", monitorInfo?.isInteractive]]} />
-                <PropertyItem type="input" property={[["控制节点", monitorInfo?.interactiveNodeDesc]]} />
-                <PropertyItem
-                    type="input"
-                    property={[
-                        ["当前交互起始偏移X", monitorInfo?.interactiveStartX],
-                        ["当前交互起始偏移Y", monitorInfo?.interactiveStartY],
-                    ]}
-                />
-                <PropertyItem
-                    type="input"
-                    property={[
-                        ["当前交互X偏移", monitorInfo?.vertexIncrementX],
-                        ["当前交互Y偏移", monitorInfo?.vertexIncrementY],
-                    ]}
-                />
-                <PropertyItem
-                    type="input"
-                    property={[
-                        ["待渲染偏移X", monitorInfo?.nextContainerPropertyX],
-                        ["待渲染偏移Y", monitorInfo?.nextContainerPropertyY],
-                        ["待渲染宽度", monitorInfo?.nextContainerPropertyWidth],
-                        ["待渲染高度", monitorInfo?.nextContainerPropertyHeight],
-                    ]}
-                />
+                <PropertyGroup title="渲染容器信息">
+                    <PropertyItem type="input" property={[["当前选中控制节点所在容器id", monitorInfo?.containerId]]} />
+                    <PropertyItem
+                        type="input"
+                        property={[
+                            ["距离左边界(px)", monitorInfo?.leftToScreen],
+                            ["距离上边界(px)", monitorInfo?.topToScreen],
+                        ]}
+                    />
+                    <PropertyItem
+                        type="input"
+                        property={[
+                            ["宽度(px)", monitorInfo?.containerWidth],
+                            ["高度(px)", monitorInfo?.containerHeight],
+                        ]}
+                    />
+                </PropertyGroup>
+                <PropertyGroup title="交互状态">
+                    <PropertyItem type="status" property={[["是否交互", monitorInfo?.isInteractive]]} />
+                    <PropertyItem type="input" property={[["控制节点", monitorInfo?.interactiveNodeDesc]]} />
+                    <PropertyItem
+                        type="input"
+                        property={[
+                            ["当前交互起始偏移X", monitorInfo?.interactiveStartX],
+                            ["当前交互起始偏移Y", monitorInfo?.interactiveStartY],
+                        ]}
+                    />
+                    <PropertyItem
+                        type="input"
+                        property={[
+                            ["当前交互X偏移", monitorInfo?.vertexIncrementX],
+                            ["当前交互Y偏移", monitorInfo?.vertexIncrementY],
+                        ]}
+                    />
+                </PropertyGroup>
+                <PropertyGroup title="渲染信息">
+                    <PropertyItem
+                        type="input"
+                        property={[
+                            ["待渲染偏移X", monitorInfo?.nextContainerPropertyX],
+                            ["待渲染偏移Y", monitorInfo?.nextContainerPropertyY],
+                            ["待渲染宽度", monitorInfo?.nextContainerPropertyWidth],
+                            ["待渲染高度", monitorInfo?.nextContainerPropertyHeight],
+                        ]}
+                    />
+                </PropertyGroup>
                 {/* <PropertyItem
                     type="input"
                     property={[
