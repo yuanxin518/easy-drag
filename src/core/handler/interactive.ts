@@ -213,7 +213,7 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         const extraWidth = HANDLE_NODE_WIDTH / 2 - BORDER_WIDTH;
         Array.from(nodes).forEach((eventNode, index) => {
             eventNode.node.onmousedown = (event: MouseEvent) => {
-                const nodeX = eventNode.node.offsetLeft + interactiveElement.offsetLeft + ([1, 4].includes(eventNode.nodeProperty.position.value) ? extraWidth : 0);
+                const nodeX = eventNode.node.offsetLeft + interactiveElement.offsetLeft + ([2, 4].includes(eventNode.nodeProperty.position.value) ? extraWidth : 0);
                 const nodeY = eventNode.node.offsetTop + interactiveElement.offsetTop + ([3, 4].includes(eventNode.nodeProperty.position.value) ? extraWidth : 0);
 
                 interactiveEventsInfo.isMousedown = true;
