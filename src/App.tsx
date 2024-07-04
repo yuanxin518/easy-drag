@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ContainerTypeSupports, initializeContainer, RendererType } from "./core/renderer";
 import { testProperty, testProperty2 } from ".";
 import { MonitorData, useReactMonitor } from "./core/handler/monitor";
@@ -7,6 +7,7 @@ import { PropertyItem, PropertyGroup } from "./core/component/propertyItem";
 const App = () => {
     const isRenderBase = useRef(false);
     const containerRef = useRef<ContainerTypeSupports | null>(null);
+    const pageRef = useRef<HTMLDivElement | null>(null);
     const [baseContainer, setBaseContainer] = useState<RendererType | null>(null);
     const [monitorData, setMonitorData] = useState<MonitorData>();
 
@@ -85,8 +86,7 @@ const App = () => {
         }
     }, [isRenderBase]);
 
-    // 渲染部分自定义内容
-    useEffect(() => {
+    const render = useCallback(() => {
         if (containerRef.current) {
             baseContainer?.addChildren(testProperty);
 
@@ -94,9 +94,18 @@ const App = () => {
             baseContainer?.drawableRender();
         }
     }, [baseContainer]);
+    // 渲染部分自定义内容
+    useEffect(() => {
+        render();
+    }, [baseContainer]);
 
+    useEffect(() => {
+        window.onresize = () => {
+            baseContainer?.refreshRender();
+        };
+    }, [render]);
     return (
-        <>
+        <div className="page" ref={pageRef}>
             <div className="container" ref={containerRef}></div>
             <div className="info">
                 <PropertyGroup title="渲染容器信息">
@@ -155,7 +164,7 @@ const App = () => {
                     ]}
                 /> */}
             </div>
-        </>
+        </div>
     );
 };
 

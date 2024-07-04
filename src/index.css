@@ -4,8 +4,8 @@
   padding: 0;
 }
 
-html,
 body,
+html,
 #root,
 .page {
   overflow: hidden;
@@ -14,23 +14,41 @@ body,
 }
 
 body {
-  background-color: rgb(247, 247, 247);
+  background-color: #fff;
 }
 
+.page {
+  display: flex;
+  padding: 20px;
+}
 
 .container {
-  width: 500px;
-  height: 500px;
-  background-color: rgba(0, 0, 0, 0.05);
+  width: calc(100% - 400px);
+
+  box-shadow: 0px 0px 4px 0 rgba(0, 0, 0, 0.5);
 }
 
 .info {
-  position: fixed;
   right: 0;
-  height: 100%;
-  width: 30%;
   top: 0;
+  overflow: auto;
+  position: fixed;
+  width: 400px;
+  height: 100%;
   padding: 8px;
   background-color: #fff;
   box-shadow: 0px 0px 4px 0 rgba(0, 0, 0, 0.1);
+}
+
+@media only screen and (max-width:768px) {
+
+
+  .container {
+    width: calc(100% - 200px);
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .info {
+    width: 200px;
+  }
 }
