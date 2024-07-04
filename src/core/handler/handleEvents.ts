@@ -9,8 +9,8 @@ export type InteractiveEventsInfoType = {
         currentX?: number;
         startY: number;
         currentY?: number;
-        vertexOffsetX?: number;
-        vertexOffsetY?: number;
+        vertexOffsetX: number;
+        vertexOffsetY: number;
     };
     nextContainerProperty: RendererContext["containerProperty"];
 };

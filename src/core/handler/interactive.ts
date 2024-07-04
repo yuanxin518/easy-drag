@@ -1,4 +1,4 @@
-import { InteractiveCallback, RendererContext } from "../renderer";
+import { RendererContext } from "../renderer";
 import initializeInteractiveEventsInfo, { InteractiveEventsInfoType } from "./handleEvents";
 import { HandleNodesType, NodeFactory } from "./handlerFactory";
 export type EventNodeType = {
@@ -21,7 +21,7 @@ type InteractiveHandler = (
     interactiveContainerId: null | string;
     bindInteractiveContainerId: (id: string) => void;
     interactiveEventsInfo: InteractiveEventsInfoType;
-    updateContainerProperty: () => InteractiveEventsInfoType["currentIncrement"];
+    updateContainerProperty: (property: RendererContext["containerProperty"]) => RendererContext["containerProperty"];
     markContainer: (property: RendererContext["containerProperty"]) => void;
 };
 
@@ -32,6 +32,8 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
     const baseProperty = {
         baseOffsetX: canvas.offsetLeft,
         baseOffsetY: canvas.offsetTop,
+        canvasMaxWidth: canvas.clientWidth,
+        canvasMaxHeight: canvas.clientHeight,
     };
     let interactiveContainerId: string | null = null;
     // 记录交互状态
@@ -58,8 +60,54 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         return interactiveContainerId;
     };
 
-    const updateContainerProperty = () => {
-        return interactiveEventsInfo.currentIncrement;
+    /**
+     * 记录新的containerProperty
+     * @param property 旧的containerProperty
+     * @returns 新的containerProperty
+     */
+    const updateContainerProperty = (property: RendererContext["containerProperty"]) => {
+        if (!interactiveEventsInfo.currentIncrement || !property) return null;
+        const { vertexOffsetX, vertexOffsetY, startX, startY, currentX, currentY } = interactiveEventsInfo.currentIncrement;
+
+        let pX = property.position.x,
+            pY = property.position.y,
+            sW = property.size.width,
+            sH = property.size.height;
+
+        const incrementX = Math.min(Math.max(-startX, vertexOffsetX), property.size.width);
+        const incrementY = Math.min(Math.max(-startY, vertexOffsetY), property.size.height);
+
+        // 不为零 则为第一或第三个点，改变了左上顶点的位置
+        if (vertexOffsetX !== 0) {
+            pX = pX + incrementX;
+            sW = sW - incrementX;
+        } else {
+            const maxWidth = baseProperty.canvasMaxWidth - startX - HANDLE_NODE_WIDTH / 2 + BORDER_WIDTH; //最大宽度增量
+            const incrementWidth = currentX !== void 0 ? Math.max(currentX - startX, -sW) : 0;
+            sW = sW + Math.min(incrementWidth, maxWidth);
+        }
+        if (vertexOffsetY !== 0) {
+            pY = pY + incrementY;
+            sH = sH - incrementY;
+        } else {
+            const maxHeight = baseProperty.canvasMaxHeight - startY - HANDLE_NODE_WIDTH / 2 + BORDER_WIDTH; //最大高度增量
+            const incrementHeight = currentY !== void 0 ? Math.max(currentY - startY, -sH) : 0;
+            sH = sH + Math.min(incrementHeight, maxHeight);
+        }
+
+        interactiveEventsInfo.nextContainerProperty = {
+            ...property,
+            position: {
+                x: pX,
+                y: pY,
+            },
+            size: {
+                width: sW,
+                height: sH,
+            },
+        };
+
+        return interactiveEventsInfo.nextContainerProperty;
     };
 
     /**
@@ -85,7 +133,7 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         Object.assign(interactiveMarkElement.style, {
             left: `${property.position.x + baseProperty.baseOffsetX}px`,
             top: `${property.position.y + baseProperty.baseOffsetY}px`,
-            width: `${property.size.width + 10}px`,
+            width: `${property.size.width}px`,
             height: `${property.size.height}px`,
             border: `${BORDER_WIDTH}px dashed ${BORDER_COLOR}`,
             display: "block",
@@ -96,22 +144,22 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
      * 给渲染最外层容器绑定事件处理，用来控制节点点击状态等
      */
     const bindContainerEvents = () => {
-        container.onmousedown = (event) => {
+        document.onmousedown = (event) => {
             event.preventDefault();
         };
-        container.onmouseup = () => {
-            commitUpdateMonitor();
+        document.onmouseup = () => {
             if (interactiveEventsInfo.isMousedown) {
                 interactiveEventsInfo.isMousedown = false;
                 interactiveEventsInfo.currentIncrement = null;
                 interactiveEventsInfo.currentEventNode = null;
             }
+            commitUpdateMonitor();
         };
 
         /**
          * 用来控制节点move
          */
-        container.onmousemove = (event) => {
+        document.onmousemove = (event) => {
             if (interactiveEventsInfo.isMousedown && interactiveEventsInfo.currentIncrement) {
                 interactiveEventsInfo.currentIncrement.currentX = event.clientX;
                 interactiveEventsInfo.currentIncrement.currentY = event.clientY;
@@ -153,13 +201,18 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
     const bindNodeEventCallback = (callbacks: { mousedownCallback: (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => void }) => {
         Array.from(nodes).forEach((eventNode, index) => {
             eventNode.node.onmousedown = (event: MouseEvent) => {
+                const nodeX = eventNode.node.offsetLeft + interactiveElement.offsetLeft;
+                const nodeY = eventNode.node.offsetTop + interactiveElement.offsetTop;
+
                 interactiveEventsInfo.isMousedown = true;
                 interactiveEventsInfo.currentEventNode = eventNode;
                 interactiveEventsInfo.currentIncrement = {
-                    startX: event.clientX,
-                    startY: event.clientY,
-                    currentX: event.clientX,
-                    currentY: event.clientY,
+                    startX: nodeX,
+                    startY: nodeY,
+                    currentX: nodeX,
+                    currentY: nodeY,
+                    vertexOffsetX: 0,
+                    vertexOffsetY: 0,
                 };
                 callbacks.mousedownCallback(event, eventNode, {
                     interactiveContainerId,

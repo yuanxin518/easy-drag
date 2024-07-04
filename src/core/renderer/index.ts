@@ -208,6 +208,9 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * 准备发布监视数据
      */
     const commitUpdateMonitor = () => {
+        interactiveInstance?.markContainer(
+            interactiveInstance?.updateContainerProperty((interactiveInstance?.interactiveContainerId && renderList.get(interactiveInstance.interactiveContainerId)) || null)
+        );
         sendMonitorData();
     };
 
@@ -217,6 +220,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     const sendMonitorData = () => {
         const sendData: MonitorData = {
             interactiveInfo: interactiveInstance?.interactiveEventsInfo,
+            nextContainerProperty: interactiveInstance?.interactiveEventsInfo.nextContainerProperty,
         };
         const lastInteractiveContainerId = interactiveInstance?.interactiveContainerId;
 

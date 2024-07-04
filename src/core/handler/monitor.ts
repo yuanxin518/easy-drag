@@ -24,6 +24,7 @@ export { useReactMonitor };
 export type MonitorData = {
     currentContainerId?: string;
     currentContainerProperty?: ContainerProperty;
+    nextContainerProperty?: ContainerProperty | null;
     interactiveInfo?: InteractiveEventsInfoType;
 };
 

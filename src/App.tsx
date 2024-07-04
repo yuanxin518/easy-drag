@@ -26,6 +26,10 @@ const App = () => {
         interactiveIncrementHeight?: number;
         vertexIncrementX?: number;
         vertexIncrementY?: number;
+        nextContainerPropertyX?: number;
+        nextContainerPropertyY?: number;
+        nextContainerPropertyWidth?: number;
+        nextContainerPropertyHeight?: number;
     }>(); // 展示的信息
     // 创建监视器，监听渲染器内部数据
     const reactMonitor = useReactMonitor((data: MonitorData) => {
@@ -60,6 +64,10 @@ const App = () => {
             //     : (monitorData?.interactiveInfo?.currentIncrement?.currentY || 0) - (monitorData?.interactiveInfo?.currentIncrement?.startY || 0),
             vertexIncrementX: monitorData?.interactiveInfo?.currentIncrement?.vertexOffsetX,
             vertexIncrementY: monitorData?.interactiveInfo?.currentIncrement?.vertexOffsetY,
+            nextContainerPropertyWidth: monitorData?.nextContainerProperty?.size.width,
+            nextContainerPropertyHeight: monitorData?.nextContainerProperty?.size.height,
+            nextContainerPropertyX: monitorData?.nextContainerProperty?.position.x,
+            nextContainerPropertyY: monitorData?.nextContainerProperty?.position.y,
         });
     }, [monitorData]);
 
@@ -111,15 +119,24 @@ const App = () => {
                 <PropertyItem
                     type="input"
                     property={[
-                        ["起始偏移X", monitorInfo?.interactiveStartX],
-                        ["起始偏移Y", monitorInfo?.interactiveStartY],
+                        ["当前交互起始偏移X", monitorInfo?.interactiveStartX],
+                        ["当前交互起始偏移Y", monitorInfo?.interactiveStartY],
                     ]}
                 />
                 <PropertyItem
                     type="input"
                     property={[
-                        ["左上顶点X偏移", monitorInfo?.vertexIncrementX],
-                        ["左上顶点Y偏移", monitorInfo?.vertexIncrementY],
+                        ["当前交互X偏移", monitorInfo?.vertexIncrementX],
+                        ["当前交互Y偏移", monitorInfo?.vertexIncrementY],
+                    ]}
+                />
+                <PropertyItem
+                    type="input"
+                    property={[
+                        ["待渲染偏移X", monitorInfo?.nextContainerPropertyX],
+                        ["待渲染偏移Y", monitorInfo?.nextContainerPropertyY],
+                        ["待渲染宽度", monitorInfo?.nextContainerPropertyWidth],
+                        ["待渲染高度", monitorInfo?.nextContainerPropertyHeight],
                     ]}
                 />
                 {/* <PropertyItem
