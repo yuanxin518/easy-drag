@@ -23,11 +23,13 @@ type InteractiveHandler = (
     interactiveEventsInfo: InteractiveEventsInfoType;
     updateContainerProperty: (property: RendererContext["containerProperty"]) => RendererContext["containerProperty"];
     markContainer: (property: RendererContext["containerProperty"]) => void;
+    setCanvasMaxSize: (maxWidth: number, maxHeight: number) => void;
+    setCanvasOffset: (offsetX: number, offsetY: number) => void;
 };
 
 export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement, canvas: HTMLCanvasElement, commitUpdateMonitor: () => void) => {
     const BORDER_WIDTH = 1;
-    const BORDER_COLOR = "skyblue";
+    const BORDER_COLOR = "#8F00FF";
     const HANDLE_NODE_WIDTH = 6;
     const baseProperty = {
         baseOffsetX: canvas.offsetLeft,
@@ -60,6 +62,16 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         return interactiveContainerId;
     };
 
+    const setCanvasMaxSize = (maxWidth: number, maxHeight: number) => {
+        baseProperty.canvasMaxWidth = maxWidth;
+        baseProperty.canvasMaxHeight = maxHeight;
+    };
+
+    const setCanvasOffset = (offsetX: number, offsetY: number) => {
+        baseProperty.baseOffsetX = offsetX;
+        baseProperty.baseOffsetY = offsetY;
+    };
+
     /**
      * 记录新的containerProperty
      * @param property 旧的containerProperty
@@ -74,15 +86,15 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
             sW = property.size.width,
             sH = property.size.height;
 
-        const incrementX = Math.min(Math.max(-startX, vertexOffsetX), property.size.width);
-        const incrementY = Math.min(Math.max(-startY, vertexOffsetY), property.size.height);
+        const incrementX = Math.min(Math.max(-startX + baseProperty.baseOffsetX, vertexOffsetX), property.size.width);
+        const incrementY = Math.min(Math.max(-startY + baseProperty.baseOffsetY, vertexOffsetY), property.size.height);
 
         // 不为零 则为第一或第三个点，改变了左上顶点的位置
         if (vertexOffsetX !== 0) {
             pX = pX + incrementX;
             sW = sW - incrementX;
         } else {
-            const maxWidth = baseProperty.canvasMaxWidth - startX - HANDLE_NODE_WIDTH / 2 + BORDER_WIDTH; //最大宽度增量
+            const maxWidth = baseProperty.baseOffsetX + baseProperty.canvasMaxWidth - startX; //最大宽度增量
             const incrementWidth = currentX !== void 0 ? Math.max(currentX - startX, -sW) : 0;
             sW = sW + Math.min(incrementWidth, maxWidth);
         }
@@ -90,7 +102,7 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
             pY = pY + incrementY;
             sH = sH - incrementY;
         } else {
-            const maxHeight = baseProperty.canvasMaxHeight - startY - HANDLE_NODE_WIDTH / 2 + BORDER_WIDTH; //最大高度增量
+            const maxHeight = baseProperty.baseOffsetY + baseProperty.canvasMaxHeight - startY; //最大高度增量
             const incrementHeight = currentY !== void 0 ? Math.max(currentY - startY, -sH) : 0;
             sH = sH + Math.min(incrementHeight, maxHeight);
         }
@@ -172,7 +184,6 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
                         interactiveEventsInfo.currentIncrement.vertexOffsetX = incrementX;
                         interactiveEventsInfo.currentIncrement.vertexOffsetY = incrementY;
                         break;
-
                     case 2:
                         interactiveEventsInfo.currentIncrement.vertexOffsetX = 0;
                         interactiveEventsInfo.currentIncrement.vertexOffsetY = incrementY;
@@ -199,10 +210,11 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
      * 为可操作节点绑定事件，用来操控位置大小变化等
      */
     const bindNodeEventCallback = (callbacks: { mousedownCallback: (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => void }) => {
+        const extraWidth = HANDLE_NODE_WIDTH / 2 - BORDER_WIDTH;
         Array.from(nodes).forEach((eventNode, index) => {
             eventNode.node.onmousedown = (event: MouseEvent) => {
-                const nodeX = eventNode.node.offsetLeft + interactiveElement.offsetLeft;
-                const nodeY = eventNode.node.offsetTop + interactiveElement.offsetTop;
+                const nodeX = eventNode.node.offsetLeft + interactiveElement.offsetLeft + ([1, 4].includes(eventNode.nodeProperty.position.value) ? extraWidth : 0);
+                const nodeY = eventNode.node.offsetTop + interactiveElement.offsetTop + ([3, 4].includes(eventNode.nodeProperty.position.value) ? extraWidth : 0);
 
                 interactiveEventsInfo.isMousedown = true;
                 interactiveEventsInfo.currentEventNode = eventNode;
@@ -233,6 +245,8 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
             interactiveContainerId,
             updateContainerProperty,
             markContainer,
+            setCanvasMaxSize,
+            setCanvasOffset,
         },
         {
             get: (obj, prop) => {

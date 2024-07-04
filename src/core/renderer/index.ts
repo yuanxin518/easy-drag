@@ -10,10 +10,12 @@ export type RendererContext = {
     id: string;
     isBase?: boolean;
     containerProperty: null | ContainerProperty;
-    boundContainer: null | ContainerTypeSupports;
+    rendererContainer: null | ContainerTypeSupports;
     isRender: boolean;
     drawable: boolean;
     children: RendererType[];
+    renderContainerWidth: number;
+    renderContainerHeight: number;
 };
 
 export type RendererType = {
@@ -24,6 +26,7 @@ export type RendererType = {
     addMonitor: (monitorAdapter: MonitorAdapterInstance) => void;
     interactiveInstance: InteractiveInstance | null;
     commitUpdateMonitor: () => void;
+    refreshRender: () => void;
 };
 
 export const initializeContainer = (baseContainer: ContainerTypeSupports) => {
@@ -48,10 +51,38 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         id: crypto.randomUUID(),
         isBase: false,
         containerProperty: containerProperty || null,
-        boundContainer: null,
+        rendererContainer: null, //渲染容器DOM
         isRender: false,
         children: [],
         drawable: false, //是否可以渲染，如果可以渲染，则以这个容器为根节点向下渲染
+        renderContainerWidth: 0, // 记录的渲染容器尺寸。记录后避免每次从DOM元素获取尺寸
+        renderContainerHeight: 0,
+    };
+
+    const setCanvasProperty = () => {
+        const canvasWidth = context.rendererContainer?.clientWidth || 0;
+        const canvasHeight = context.rendererContainer?.clientHeight || 0;
+        let canvasOffsetLeft = 0;
+        let canvasOffsetTop = 0;
+        context.renderContainerWidth = canvasWidth;
+        context.renderContainerHeight = canvasHeight;
+        // 设置canvas元素尺寸等
+        if (canvasElement) {
+            canvasElement.width = context.renderContainerWidth;
+            canvasElement.height = context.renderContainerHeight;
+
+            canvasOffsetLeft = canvasElement?.offsetLeft;
+            canvasOffsetTop = canvasElement?.offsetTop;
+        }
+
+        if (context.containerProperty) {
+            context.containerProperty.size = {
+                width: canvasWidth,
+                height: canvasHeight,
+            };
+            interactiveInstance?.setCanvasMaxSize(canvasWidth, canvasHeight);
+            interactiveInstance?.setCanvasOffset(canvasOffsetLeft, canvasOffsetTop);
+        }
     };
 
     /**
@@ -60,8 +91,10 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * @param isBase 是否是根节点
      */
     const bindContainer = (container: ContainerTypeSupports, isBase = false) => {
-        context.boundContainer = container;
         context.isBase = isBase;
+
+        // 记录渲染容器尺寸信息
+        context.rendererContainer = container;
 
         if (isBase) {
             context.drawable = true;
@@ -72,10 +105,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             canvasElement = document.createElement("canvas");
             container?.appendChild(canvasElement);
             boundCanvasCallback();
-            const width = container?.clientWidth || 0;
-            const height = container?.clientHeight || 0;
-            canvasElement.width = width;
-            canvasElement.height = height;
+            setCanvasProperty();
             markRender();
 
             // 初始化交互层
@@ -89,8 +119,8 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
                     y: 0,
                 },
                 size: {
-                    width,
-                    height,
+                    width: context.renderContainerWidth,
+                    height: context.renderContainerHeight,
                 },
             });
             context.containerProperty = elementContainer.property;
@@ -147,6 +177,16 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         return context.isRender;
     };
 
+    /**
+     * 更新渲染
+     */
+    const refreshRender = () => {
+        if (canvasElement) {
+            setCanvasProperty();
+        }
+        drawableRender();
+    };
+
     const drawableRender = () => {
         if (!context.drawable) return;
 
@@ -170,7 +210,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         renderList.forEach((property, id) => {
             const moveToX = property.position?.x || 0;
             const moveToY = property.position?.y || 0;
-            ctx.fillStyle = property.style?.backgroundColor || "rgb(200,0,0)";
+            ctx.fillStyle = property.style?.backgroundColor || "rgb(247,247,247)";
             ctx.fillRect(moveToX, moveToY, property.size?.width || 0, property.size?.height || 0);
         });
     };
@@ -237,6 +277,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     return {
         context,
         bindContainer,
+        refreshRender,
         drawableRender,
         addChildren,
         addMonitor,
