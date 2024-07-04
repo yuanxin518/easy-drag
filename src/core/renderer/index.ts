@@ -105,7 +105,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
 
         console.log("绑定canvas内move交互回调函数");
         canvasElement.onmousemove = (event) => {
-            if (!interactiveInstance) return;
+            if (!interactiveInstance || (interactiveInstance.interactiveEventsInfo.isMousedown && interactiveInstance.interactiveContainerId)) return;
             const canvasPos = canvasElement?.getBoundingClientRect();
             const offsetXToCanvas = event.clientX - (canvasPos?.left || 0);
             const offsetYToCanvas = event.clientY - (canvasPos?.top || 0);

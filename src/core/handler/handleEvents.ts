@@ -2,11 +2,26 @@ import { EventExtraType, EventNodeType } from "./interactive";
 
 export type InteractiveEventsInfoType = {
     isMousedown: boolean;
+    currentEventNode: EventNodeType | null;
+    currentIncrement: null | {
+        startX: number;
+        currentX?: number;
+        startY: number;
+        currentY?: number;
+        vertexOffsetX?: number;
+        vertexOffsetY?: number;
+    };
 };
 
+/**
+ * 记录交互事件，一次完整交互所需要记录的状态量
+ * @returns
+ */
 const initializeInteractiveEventsInfo = (): InteractiveEventsInfoType => {
     return {
-        isMousedown: false,
+        isMousedown: false, // 是否点击节点
+        currentEventNode: null, // 当前点击节点的信息
+        currentIncrement: null, // 当前交互的各种增量，位移、尺寸等
     };
 };
 

@@ -77,10 +77,49 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
             event.preventDefault();
         };
         container.onmouseup = () => {
+            sendMonitorData();
             if (interactiveEventsInfo.isMousedown) {
                 interactiveEventsInfo.isMousedown = false;
+                interactiveEventsInfo.currentIncrement = null;
+                interactiveEventsInfo.currentEventNode = null;
             }
-            sendMonitorData();
+        };
+
+        /**
+         * 用来控制节点move
+         */
+        container.onmousemove = (event) => {
+            if (interactiveEventsInfo.isMousedown && interactiveEventsInfo.currentIncrement) {
+                interactiveEventsInfo.currentIncrement.currentX = event.clientX;
+                interactiveEventsInfo.currentIncrement.currentY = event.clientY;
+
+                const incrementX = interactiveEventsInfo.currentIncrement.currentX - interactiveEventsInfo.currentIncrement.startX;
+                const incrementY = interactiveEventsInfo.currentIncrement.currentY - interactiveEventsInfo.currentIncrement.startY;
+                // 判断尺寸增量
+                switch (interactiveEventsInfo.currentEventNode?.nodeProperty.position.value) {
+                    case 1:
+                        interactiveEventsInfo.currentIncrement.vertexOffsetX = incrementX;
+                        interactiveEventsInfo.currentIncrement.vertexOffsetY = incrementY;
+                        break;
+
+                    case 2:
+                        interactiveEventsInfo.currentIncrement.vertexOffsetX = 0;
+                        interactiveEventsInfo.currentIncrement.vertexOffsetY = incrementY;
+                        break;
+
+                    case 3:
+                        interactiveEventsInfo.currentIncrement.vertexOffsetX = incrementX;
+                        interactiveEventsInfo.currentIncrement.vertexOffsetY = 0;
+                        break;
+
+                    case 4:
+                        interactiveEventsInfo.currentIncrement.vertexOffsetX = 0;
+                        interactiveEventsInfo.currentIncrement.vertexOffsetY = 0;
+                        break;
+                    default:
+                }
+                sendMonitorData();
+            }
         };
     };
 
@@ -91,6 +130,13 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         Array.from(nodes).forEach((eventNode, index) => {
             eventNode.node.onmousedown = (event: MouseEvent) => {
                 interactiveEventsInfo.isMousedown = true;
+                interactiveEventsInfo.currentEventNode = eventNode;
+                interactiveEventsInfo.currentIncrement = {
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    currentX: event.clientX,
+                    currentY: event.clientY,
+                };
                 callbacks.mousedownCallback(event, eventNode, {
                     interactiveContainerId,
                 });
