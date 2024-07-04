@@ -4,8 +4,8 @@ import { interactiveHandler, InteractiveInstance } from "../handler/interactive"
 import { interacitiveMonitor, MonitorAdapterInstance, MonitorData } from "../handler/monitor";
 import { extractCanvas } from "../utils/extractCanvas";
 
+export type InteractiveCallback = () => void;
 export type ContainerTypeSupports = HTMLDivElement;
-
 export type RendererContext = {
     id: string;
     isBase?: boolean;
@@ -23,6 +23,7 @@ export type RendererType = {
     drawableRender: () => void;
     addMonitor: (monitorAdapter: MonitorAdapterInstance) => void;
     interactiveInstance: InteractiveInstance | null;
+    commitUpdateMonitor: () => void;
 };
 
 export const initializeContainer = (baseContainer: ContainerTypeSupports) => {
@@ -78,7 +79,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             markRender();
 
             // 初始化交互层
-            interactiveInstance = interactiveHandler(container, canvasElement, sendMonitorData);
+            interactiveInstance = interactiveHandler(container, canvasElement, commitUpdateMonitor);
             bindInteractiveHandler();
 
             // 初始化容器参数
@@ -118,7 +119,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
 
             if (!topTarget) return;
             interactiveInstance.surroundContainer(topTarget.id, topTarget.containerProperty);
-            sendMonitorData();
+            commitUpdateMonitor();
         };
     };
 
@@ -204,6 +205,13 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     };
 
     /**
+     * 准备发布监视数据
+     */
+    const commitUpdateMonitor = () => {
+        sendMonitorData();
+    };
+
+    /**
      * 在更新后调用。将数据暴露给所有Monitor
      */
     const sendMonitorData = () => {
@@ -229,6 +237,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         addChildren,
         addMonitor,
         interactiveInstance,
+        commitUpdateMonitor,
     };
 };
 

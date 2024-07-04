@@ -40,14 +40,25 @@ const HANDLER_NODES: HandleNodesType[] = [
 
 export const NodeFactory = () => {
     const genContainer = () => {
-        const interactiveInstance = document.createElement("div");
+        const node = document.createElement("div");
 
-        Object.assign(interactiveInstance.style, {
+        Object.assign(node.style, {
             position: "absolute",
             display: "none",
             "pointer-events": "none",
         });
-        return interactiveInstance;
+        return node;
+    };
+
+    const genMarkContainer = () => {
+        const node = document.createElement("div");
+
+        Object.assign(node.style, {
+            position: "absolute",
+            display: "none",
+            "pointer-events": "none",
+        });
+        return node;
     };
 
     const genNodes = (nodeWidth: number, nodeColor: string): EventNodeType[] => {
@@ -75,5 +86,5 @@ export const NodeFactory = () => {
         });
     };
 
-    return { genContainer, genNodes };
+    return { genContainer, genMarkContainer, genNodes };
 };

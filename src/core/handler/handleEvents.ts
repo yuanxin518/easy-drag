@@ -1,3 +1,4 @@
+import { RendererContext } from "../renderer";
 import { EventExtraType, EventNodeType } from "./interactive";
 
 export type InteractiveEventsInfoType = {
@@ -11,6 +12,7 @@ export type InteractiveEventsInfoType = {
         vertexOffsetX?: number;
         vertexOffsetY?: number;
     };
+    nextContainerProperty: RendererContext["containerProperty"];
 };
 
 /**
@@ -22,6 +24,7 @@ const initializeInteractiveEventsInfo = (): InteractiveEventsInfoType => {
         isMousedown: false, // 是否点击节点
         currentEventNode: null, // 当前点击节点的信息
         currentIncrement: null, // 当前交互的各种增量，位移、尺寸等
+        nextContainerProperty: null,
     };
 };
 

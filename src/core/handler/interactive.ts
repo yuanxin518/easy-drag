@@ -1,4 +1,4 @@
-import { RendererContext } from "../renderer";
+import { InteractiveCallback, RendererContext } from "../renderer";
 import initializeInteractiveEventsInfo, { InteractiveEventsInfoType } from "./handleEvents";
 import { HandleNodesType, NodeFactory } from "./handlerFactory";
 export type EventNodeType = {
@@ -16,14 +16,16 @@ type InteractiveHandler = (
     sendMonitorData: () => void
 ) => {
     surroundContainer: (id: RendererContext["id"], property: RendererContext["containerProperty"]) => void;
+    bindContainerEvents: () => void;
     bindNodeEventCallback: (callbacks: { mousedownCallback: (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => void }) => void;
     interactiveContainerId: null | string;
-    bindContainerEvents: () => void;
     bindInteractiveContainerId: (id: string) => void;
     interactiveEventsInfo: InteractiveEventsInfoType;
+    updateContainerProperty: () => InteractiveEventsInfoType["currentIncrement"];
+    markContainer: (property: RendererContext["containerProperty"]) => void;
 };
 
-export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement, canvas: HTMLCanvasElement, sendMonitorData: () => void) => {
+export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement, canvas: HTMLCanvasElement, commitUpdateMonitor: () => void) => {
     const BORDER_WIDTH = 1;
     const BORDER_COLOR = "skyblue";
     const HANDLE_NODE_WIDTH = 6;
@@ -35,14 +37,17 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
     // 记录交互状态
     const interactiveEventsInfo = initializeInteractiveEventsInfo();
 
-    const { genNodes, genContainer } = NodeFactory();
+    const { genNodes, genContainer, genMarkContainer } = NodeFactory();
     // 初始化容器
-    const interactiveInstance = genContainer();
-    container.appendChild(interactiveInstance);
+    const interactiveElement = genContainer();
+    const interactiveMarkElement = genMarkContainer();
+    container.appendChild(interactiveElement);
+    container.appendChild(interactiveMarkElement);
+
     // 初始化四个操纵点
     const nodes = genNodes(HANDLE_NODE_WIDTH, BORDER_COLOR);
     nodes.forEach(({ nodeProperty, node }) => {
-        interactiveInstance.append(node);
+        interactiveElement.append(node);
     });
 
     const bindInteractiveContainerId = (id: string) => {
@@ -53,18 +58,36 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         return interactiveContainerId;
     };
 
+    const updateContainerProperty = () => {
+        return interactiveEventsInfo.currentIncrement;
+    };
+
     /**
      * 调用后，将操控容器渲染到指定property的渲染位置。在每次更新canvas的时候调用。
      * @param property
      */
     const surroundContainer = (id: RendererContext["id"], property: RendererContext["containerProperty"]) => {
         if (!property) return;
-        Object.assign(interactiveInstance.style, {
+        Object.assign(interactiveElement.style, {
             left: `${property.position.x + baseProperty.baseOffsetX}px`,
             top: `${property.position.y + baseProperty.baseOffsetY}px`,
             width: `${property.size.width}px`,
             height: `${property.size.height}px`,
             border: `${BORDER_WIDTH}px solid ${BORDER_COLOR}`,
+            display: "block",
+        });
+    };
+    /**
+     * 调用后渲染交互容器到指定property的渲染位置，用来标记下一次渲染所在的位置
+     */
+    const markContainer = (property: RendererContext["containerProperty"]) => {
+        if (!property) return;
+        Object.assign(interactiveMarkElement.style, {
+            left: `${property.position.x + baseProperty.baseOffsetX}px`,
+            top: `${property.position.y + baseProperty.baseOffsetY}px`,
+            width: `${property.size.width + 10}px`,
+            height: `${property.size.height}px`,
+            border: `${BORDER_WIDTH}px dashed ${BORDER_COLOR}`,
             display: "block",
         });
     };
@@ -77,7 +100,7 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
             event.preventDefault();
         };
         container.onmouseup = () => {
-            sendMonitorData();
+            commitUpdateMonitor();
             if (interactiveEventsInfo.isMousedown) {
                 interactiveEventsInfo.isMousedown = false;
                 interactiveEventsInfo.currentIncrement = null;
@@ -118,7 +141,8 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
                         break;
                     default:
                 }
-                sendMonitorData();
+
+                commitUpdateMonitor();
             }
         };
     };
@@ -140,7 +164,8 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
                 callbacks.mousedownCallback(event, eventNode, {
                     interactiveContainerId,
                 });
-                sendMonitorData();
+
+                commitUpdateMonitor();
             };
         });
     };
@@ -153,6 +178,8 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
             interactiveEventsInfo,
             bindInteractiveContainerId,
             interactiveContainerId,
+            updateContainerProperty,
+            markContainer,
         },
         {
             get: (obj, prop) => {
