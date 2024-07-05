@@ -10,6 +10,8 @@ export type EventExtraType = {
     interactiveContainerId: string | null;
 };
 
+export type NodeEventsCallback = { mousedownCallback: (event: MouseEvent, nodeInfo: EventNodeType, extraInfo: EventExtraType) => void };
+
 type InteractiveHandler = (
     container: HTMLDivElement,
     canvas: HTMLCanvasElement,
@@ -17,7 +19,8 @@ type InteractiveHandler = (
 ) => {
     surroundContainer: (id: RendererContext["id"], property: RendererContext["containerProperty"]) => void;
     bindContainerEvents: () => void;
-    bindNodeEventCallback: (callbacks: { mousedownCallback: (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => void }) => void;
+    bindNodeEventsCallback: (callbacks: NodeEventsCallback) => void;
+    bindNodeEvents: () => void;
     interactiveContainerId: null | string;
     bindInteractiveContainerId: (id: string) => void;
     interactiveEventsInfo: InteractiveEventsInfoType;
@@ -37,6 +40,7 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         canvasMaxWidth: canvas.clientWidth,
         canvasMaxHeight: canvas.clientHeight,
     };
+    let nodeEventsCallback: NodeEventsCallback | null = null;
     let interactiveContainerId: string | null = null;
     // 记录交互状态
     const interactiveEventsInfo = initializeInteractiveEventsInfo();
@@ -206,10 +210,15 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         };
     };
 
+    const bindNodeEventsCallback = (callbacks?: NodeEventsCallback) => {
+        if (callbacks) {
+            nodeEventsCallback = callbacks;
+        }
+    };
     /**
      * 为可操作节点绑定事件，用来操控位置大小变化等
      */
-    const bindNodeEventCallback = (callbacks: { mousedownCallback: (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => void }) => {
+    const bindNodeEvents = () => {
         const extraWidth = HANDLE_NODE_WIDTH / 2 - BORDER_WIDTH;
         Array.from(nodes).forEach((eventNode, index) => {
             eventNode.node.onmousedown = (event: MouseEvent) => {
@@ -226,10 +235,10 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
                     vertexOffsetX: 0,
                     vertexOffsetY: 0,
                 };
-                callbacks.mousedownCallback(event, eventNode, {
+
+                nodeEventsCallback?.mousedownCallback(event, eventNode, {
                     interactiveContainerId,
                 });
-
                 commitUpdateMonitor();
             };
         });
@@ -238,7 +247,8 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
     return new Proxy(
         {
             surroundContainer,
-            bindNodeEventCallback,
+            bindNodeEventsCallback,
+            bindNodeEvents,
             bindContainerEvents,
             interactiveEventsInfo,
             bindInteractiveContainerId,

@@ -91,7 +91,6 @@ const App = () => {
             baseContainer?.addChildren(testProperty);
 
             baseContainer?.addChildren(testProperty2);
-            baseContainer?.drawableRender();
         }
     }, [baseContainer]);
     // 渲染部分自定义内容

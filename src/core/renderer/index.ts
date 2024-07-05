@@ -8,81 +8,55 @@ export type InteractiveCallback = () => void;
 export type ContainerTypeSupports = HTMLDivElement;
 export type RendererContext = {
     id: string;
-    isBase?: boolean;
     containerProperty: null | ContainerProperty;
-    rendererContainer: null | ContainerTypeSupports;
+    canvas: null | HTMLCanvasElement;
+    container: null | ContainerTypeSupports;
     isRender: boolean;
-    drawable: boolean;
     children: RendererType[];
     renderContainerWidth: number;
     renderContainerHeight: number;
+    interactiveInstance: InteractiveInstance | null;
 };
 
 export type RendererType = {
     context: RendererContext;
-    bindContainer: (container: ContainerTypeSupports, isBase?: boolean) => void;
+    initialize: (container: ContainerTypeSupports) => void;
     addChildren: (renderer: RendererType) => void;
-    drawableRender: () => void;
+    setRenderList: () => void;
     addMonitor: (monitorAdapter: MonitorAdapterInstance) => void;
-    interactiveInstance: InteractiveInstance | null;
-    commitUpdateMonitor: () => void;
     refreshRender: () => void;
 };
 
+/**
+ * 初始化渲染器
+ * @param baseContainer 容器DOM 
+ * @returns 渲染器
+ */
 export const initializeContainer = (baseContainer: ContainerTypeSupports) => {
     const renderer = Renderer();
-    const { bindContainer } = renderer;
-    bindContainer(baseContainer, true);
-
+    const { initialize } = renderer;
+    initialize(baseContainer);
     return renderer;
 };
+
 /**
  * 渲染器
- * 通过bindContainer绑定当前元素的容器
- * 调用render，把子元素渲染到当前元素中
+ * @param containerProperty
+ * @returns
  */
 const Renderer = (containerProperty?: ContainerProperty): RendererType => {
-    let canvasElement: HTMLCanvasElement | null = null; //内容渲染层
-    let interactiveInstance: InteractiveInstance | null = null; //交互层
-
     const monitor = interacitiveMonitor();
-    const renderList = new Map<string, ContainerProperty>();
+    const renderList = new Map<string, ContainerProperty>(); // 当前渲染的所有容器
     const context: RendererContext = {
         id: crypto.randomUUID(),
-        isBase: false,
         containerProperty: containerProperty || null,
-        rendererContainer: null, //渲染容器DOM
+        container: null,
+        canvas: null,
         isRender: false,
         children: [],
-        drawable: false, //是否可以渲染，如果可以渲染，则以这个容器为根节点向下渲染
         renderContainerWidth: 0, // 记录的渲染容器尺寸。记录后避免每次从DOM元素获取尺寸
         renderContainerHeight: 0,
-    };
-
-    const setCanvasProperty = () => {
-        const canvasWidth = context.rendererContainer?.clientWidth || 0;
-        const canvasHeight = context.rendererContainer?.clientHeight || 0;
-        let canvasOffsetLeft = 0;
-        let canvasOffsetTop = 0;
-        context.renderContainerWidth = canvasWidth;
-        context.renderContainerHeight = canvasHeight;
-        // 设置canvas元素尺寸等
-        if (canvasElement) {
-            canvasElement.width = context.renderContainerWidth;
-            canvasElement.height = context.renderContainerHeight;
-
-            canvasOffsetLeft = canvasElement?.offsetLeft;
-            canvasOffsetTop = canvasElement?.offsetTop;
-        }
-
-        if (context.containerProperty) {
-            context.containerProperty.size = {
-                width: canvasWidth,
-                height: canvasHeight,
-            };
-            interactiveInstance?.setCanvasMaxSize(canvasWidth, canvasHeight);
-            interactiveInstance?.setCanvasOffset(canvasOffsetLeft, canvasOffsetTop);
-        }
+        interactiveInstance: null,
     };
 
     /**
@@ -90,28 +64,22 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * @param container
      * @param isBase 是否是根节点
      */
-    const bindContainer = (container: ContainerTypeSupports, isBase = false) => {
-        context.isBase = isBase;
+    const initialize = (container: ContainerTypeSupports) => {
+        bindContainerDOM(container);
 
-        // 记录渲染容器尺寸信息
-        context.rendererContainer = container;
+        createCanvas();
+        setCanvasProperty();
+        bindCanvasEventsCallback();
 
-        if (isBase) {
-            context.drawable = true;
-        }
+        bindInteraction();
+        markRender();
+    };
 
-        if (markRender() && isBase && container) {
-            // 初始化Canvas
-            canvasElement = document.createElement("canvas");
-            container?.appendChild(canvasElement);
-            boundCanvasCallback();
-            setCanvasProperty();
-            markRender();
+    const bindContainerDOM = (container: ContainerTypeSupports) => {
+        console.log("开始绑定容器");
+        context.container = container;
 
-            // 初始化交互层
-            interactiveInstance = interactiveHandler(container, canvasElement, commitUpdateMonitor);
-            bindInteractiveHandler();
-
+        if (container) {
             // 初始化容器参数
             const elementContainer = ElementContainer({
                 position: {
@@ -127,17 +95,66 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         }
     };
 
+    const createCanvas = () => {
+        console.log("创建canvas元素");
+        // 初始化Canvas
+        context.canvas = document.createElement("canvas");
+        context.container?.appendChild(context.canvas);
+    };
+
+    const bindInteraction = () => {
+        console.log("绑定交互层内容");
+        if (context.container && context.canvas) {
+            // 初始化交互层
+            context.interactiveInstance = interactiveHandler(context.container, context.canvas, commitUpdateMonitor);
+            bindInteractiveHandler();
+        }
+    };
+
+    /**
+     * 记录并设置canvas元素的DOM属性
+     */
+    const setCanvasProperty = () => {
+        if (!context.canvas) throw new Error("canvas has not been intialized.");
+        const interactiveInstance = context.interactiveInstance;
+
+        console.log("开始设置canvas属性");
+        const canvasWidth = context.container?.clientWidth || 0;
+        const canvasHeight = context.container?.clientHeight || 0;
+        let canvasOffsetLeft = 0;
+        let canvasOffsetTop = 0;
+        context.renderContainerWidth = canvasWidth;
+        context.renderContainerHeight = canvasHeight;
+        // 设置canvas元素尺寸等
+        if (context.canvas) {
+            context.canvas.width = context.renderContainerWidth;
+            context.canvas.height = context.renderContainerHeight;
+
+            canvasOffsetLeft = context.canvas?.offsetLeft;
+            canvasOffsetTop = context.canvas?.offsetTop;
+        }
+
+        if (context.containerProperty) {
+            context.containerProperty.size = {
+                width: canvasWidth,
+                height: canvasHeight,
+            };
+            interactiveInstance?.setCanvasMaxSize(canvasWidth, canvasHeight);
+            interactiveInstance?.setCanvasOffset(canvasOffsetLeft, canvasOffsetTop);
+        }
+    };
+
     /**
      * 绑定完成Canvas在当前实例上之后，回调
      * 绑定交互处理器
      */
-    const boundCanvasCallback = () => {
-        if (!canvasElement || !context.isBase) return;
+    const bindCanvasEventsCallback = () => {
+        if (!context.canvas) throw new Error("canvas has not been intialized.");
 
-        console.log("绑定canvas内move交互回调函数");
-        canvasElement.onmousemove = (event) => {
+        context.canvas.onmousemove = (event) => {
+            const interactiveInstance = context.interactiveInstance;
             if (!interactiveInstance || (interactiveInstance.interactiveEventsInfo.isMousedown && interactiveInstance.interactiveContainerId)) return;
-            const canvasPos = canvasElement?.getBoundingClientRect();
+            const canvasPos = context.canvas?.getBoundingClientRect();
             const offsetXToCanvas = event.clientX - (canvasPos?.left || 0);
             const offsetYToCanvas = event.clientY - (canvasPos?.top || 0);
             const targetProperties = findLastRenderContainer(offsetXToCanvas, offsetYToCanvas);
@@ -154,21 +171,24 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     };
 
     const bindInteractiveHandler = () => {
-        console.log("绑定交互处理器", interactiveInstance);
+        console.log("绑定交互处理器");
+        const interactiveInstance = context.interactiveInstance;
         interactiveInstance?.bindContainerEvents();
-        interactiveInstance?.bindNodeEventCallback({
+        interactiveInstance?.bindNodeEventsCallback({
             mousedownCallback,
         });
+        interactiveInstance?.bindNodeEvents();
     };
 
     /**
-     * 父元素调用，添加子元素到渲染列表
+     * 添加渲染内容到列表
      * @param property
      */
     const addChildren = (renderer: RendererType) => {
         if (context.children.findIndex((item) => item.context.id === renderer.context.id) === -1) {
             context.children.push(renderer);
         }
+        refreshRender();
     };
 
     const markRender = () => {
@@ -181,15 +201,18 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * 更新渲染
      */
     const refreshRender = () => {
-        if (canvasElement) {
+        console.log("重新渲染canvas");
+        if (context.canvas) {
             setCanvasProperty();
         }
-        drawableRender();
+        setRenderList();
+        render();
     };
 
-    const drawableRender = () => {
-        if (!context.drawable) return;
-
+    /**
+     * 设置containerProperty到需要渲染的列表中
+     */
+    const setRenderList = () => {
         function parseContainer(context: RendererContext) {
             if (context.containerProperty === null) return;
             renderList.set(context.id, context.containerProperty);
@@ -198,13 +221,11 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             });
         }
         parseContainer(context);
-        render();
     };
 
     const render = () => {
-        const { drawable } = context;
-        if (!canvasElement || !drawable) return;
-        const { ctx } = extractCanvas(canvasElement);
+        if (!context.canvas) return;
+        const { ctx } = extractCanvas(context.canvas);
         if (!ctx) return;
 
         renderList.forEach((property, id) => {
@@ -248,6 +269,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * 准备发布监视数据
      */
     const commitUpdateMonitor = () => {
+        const interactiveInstance = context.interactiveInstance;
         interactiveInstance?.markContainer(
             interactiveInstance?.updateContainerProperty((interactiveInstance?.interactiveContainerId && renderList.get(interactiveInstance.interactiveContainerId)) || null)
         );
@@ -258,6 +280,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * 在更新后调用。将数据暴露给所有Monitor
      */
     const sendMonitorData = () => {
+        const interactiveInstance = context.interactiveInstance;
         const sendData: MonitorData = {
             interactiveInfo: interactiveInstance?.interactiveEventsInfo,
             nextContainerProperty: interactiveInstance?.interactiveEventsInfo.nextContainerProperty,
@@ -276,13 +299,11 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
 
     return {
         context,
-        bindContainer,
-        refreshRender,
-        drawableRender,
+        initialize,
         addChildren,
+        setRenderList,
         addMonitor,
-        interactiveInstance,
-        commitUpdateMonitor,
+        refreshRender,
     };
 };
 
