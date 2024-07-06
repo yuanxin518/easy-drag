@@ -107,6 +107,13 @@ const App = () => {
         <div className="page" ref={pageRef}>
             <div className="container" ref={containerRef}></div>
             <div className="info">
+                <div
+                    onClick={() => {
+                        baseContainer?.downloadImage();
+                    }}
+                >
+                    导出图片
+                </div>
                 <PropertyGroup title="渲染容器信息">
                     <PropertyItem type="input" property={[["当前选中控制节点所在容器id", monitorInfo?.containerId]]} />
                     <PropertyItem
