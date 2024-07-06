@@ -8,11 +8,11 @@ export type InteractiveCallback = () => void;
 export type ContainerTypeSupports = HTMLDivElement;
 export type RendererContext = {
     id: string;
+    parrentId: string | null;
     containerProperty: null | ContainerProperty;
     canvas: null | HTMLCanvasElement;
     container: null | ContainerTypeSupports;
     isRender: boolean;
-    children: RendererType[];
     renderContainerWidth: number;
     renderContainerHeight: number;
     interactiveInstance: InteractiveInstance | null;
@@ -22,14 +22,13 @@ export type RendererType = {
     context: RendererContext;
     initialize: (container: ContainerTypeSupports) => void;
     addChildren: (renderer: RendererType) => void;
-    setRenderList: () => void;
     addMonitor: (monitorAdapter: MonitorAdapterInstance) => void;
     refreshRender: () => void;
 };
 
 /**
  * 初始化渲染器
- * @param baseContainer 容器DOM 
+ * @param baseContainer 容器DOM
  * @returns 渲染器
  */
 export const initializeContainer = (baseContainer: ContainerTypeSupports) => {
@@ -46,14 +45,14 @@ export const initializeContainer = (baseContainer: ContainerTypeSupports) => {
  */
 const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     const monitor = interacitiveMonitor();
-    const renderList = new Map<string, ContainerProperty>(); // 当前渲染的所有容器
+    const renderList = new Map<string, RendererType>(); // 当前渲染的所有容器
     const context: RendererContext = {
         id: crypto.randomUUID(),
+        parrentId: null,
         containerProperty: containerProperty || null,
         container: null,
         canvas: null,
         isRender: false,
-        children: [],
         renderContainerWidth: 0, // 记录的渲染容器尺寸。记录后避免每次从DOM元素获取尺寸
         renderContainerHeight: 0,
         interactiveInstance: null,
@@ -160,12 +159,11 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             const targetProperties = findLastRenderContainer(offsetXToCanvas, offsetYToCanvas);
 
             if (targetProperties.length === 0) return;
-
             const topTarget = targetProperties[0];
             interactiveInstance.bindInteractiveContainerId(topTarget.id);
 
             if (!topTarget) return;
-            interactiveInstance.surroundContainer(topTarget.id, topTarget.containerProperty);
+            interactiveInstance.surroundContainer(topTarget.containerProperty);
             commitUpdateMonitor();
         };
     };
@@ -176,6 +174,11 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         interactiveInstance?.bindContainerEvents();
         interactiveInstance?.bindNodeEventsCallback({
             mousedownCallback,
+            mouseupCallback: () => {
+                if (context.interactiveInstance?.interactiveEventsInfo.isMousedown) {
+                    refreshRender();
+                }
+            },
         });
         interactiveInstance?.bindNodeEvents();
     };
@@ -185,9 +188,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * @param property
      */
     const addChildren = (renderer: RendererType) => {
-        if (context.children.findIndex((item) => item.context.id === renderer.context.id) === -1) {
-            context.children.push(renderer);
-        }
+        renderList.set(renderer.context.id, renderer);
         refreshRender();
     };
 
@@ -205,22 +206,19 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         if (context.canvas) {
             setCanvasProperty();
         }
-        setRenderList();
+        updateInteractiveContainer();
         render();
     };
 
-    /**
-     * 设置containerProperty到需要渲染的列表中
-     */
-    const setRenderList = () => {
-        function parseContainer(context: RendererContext) {
-            if (context.containerProperty === null) return;
-            renderList.set(context.id, context.containerProperty);
-            context.children.forEach((item) => {
-                parseContainer(item.context);
-            });
-        }
-        parseContainer(context);
+    const updateInteractiveContainer = () => {
+        if (!context.interactiveInstance?.interactiveEventsInfo.isMousedown) return;
+        const { interactiveInstance } = context;
+        const containerId = interactiveInstance?.interactiveContainerId;
+        if (!containerId) return;
+        const containerProperty = renderList.get(containerId)?.context.containerProperty;
+        if (!containerProperty) return;
+        Object.assign(containerProperty, interactiveInstance.interactiveEventsInfo.nextContainerProperty);
+        context.interactiveInstance?.surroundContainer(containerProperty);
     };
 
     const render = () => {
@@ -228,7 +226,9 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         const { ctx } = extractCanvas(context.canvas);
         if (!ctx) return;
 
-        renderList.forEach((property, id) => {
+        renderList.forEach((renderer, id) => {
+            const property = renderer.context.containerProperty;
+            if (!property) return;
             const moveToX = property.position?.x || 0;
             const moveToY = property.position?.y || 0;
             ctx.fillStyle = property.style?.backgroundColor || "rgb(247,247,247)";
@@ -240,10 +240,16 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * 根据点，找出最上层的容器
      */
     const findLastRenderContainer = (x: number, y: number): Pick<RendererContext, "id" | "containerProperty">[] => {
-        const targetList = [];
+        const targetList: Pick<RendererContext, "id" | "containerProperty">[] = [];
         const renderListEntries = renderList.entries();
+
+        const priorityList: ({
+            priority: number;
+        } & Pick<RendererContext, "id" | "containerProperty">)[] = [];
         for (let i = 0; i < renderList.size; i++) {
-            const [id, property] = renderListEntries.next().value as [string, ContainerProperty];
+            const [id, renderer] = renderListEntries.next().value as [string, RendererType];
+            const property = renderer.context.containerProperty;
+            if (!property) break;
 
             const isBase = context.id === id;
             const sx = property.position.x;
@@ -252,12 +258,25 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
             const ey = property.position.y + property.size.height;
             // 判断在内部
             if (!isBase && sx <= x && sy <= y && ex > x && ey > y) {
-                targetList.unshift({
+                let priority = 10;
+                if (id === context.interactiveInstance?.interactiveContainerId) {
+                    priority = 9;
+                }
+                priorityList.push({
+                    priority: priority,
                     id,
                     containerProperty: property,
                 });
             }
         }
+        priorityList
+            .sort((pre, cur) => pre.priority - cur.priority)
+            .forEach((item) => {
+                targetList.push({
+                    id: item.id,
+                    containerProperty: item.containerProperty,
+                });
+            });
         return targetList;
     };
 
@@ -271,7 +290,9 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     const commitUpdateMonitor = () => {
         const interactiveInstance = context.interactiveInstance;
         interactiveInstance?.markContainer(
-            interactiveInstance?.updateContainerProperty((interactiveInstance?.interactiveContainerId && renderList.get(interactiveInstance.interactiveContainerId)) || null)
+            interactiveInstance?.updateContainerProperty(
+                (interactiveInstance?.interactiveContainerId && renderList.get(interactiveInstance.interactiveContainerId)?.context.containerProperty) || null
+            )
         );
         sendMonitorData();
     };
@@ -290,7 +311,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         if (lastInteractiveContainerId) {
             Object.assign(sendData, {
                 currentContainerId: lastInteractiveContainerId,
-                currentContainerProperty: renderList.get(lastInteractiveContainerId),
+                currentContainerProperty: renderList.get(lastInteractiveContainerId)?.context.containerProperty,
             });
         }
 
@@ -301,7 +322,6 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         context,
         initialize,
         addChildren,
-        setRenderList,
         addMonitor,
         refreshRender,
     };

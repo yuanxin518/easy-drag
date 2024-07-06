@@ -10,14 +10,17 @@ export type EventExtraType = {
     interactiveContainerId: string | null;
 };
 
-export type NodeEventsCallback = { mousedownCallback: (event: MouseEvent, nodeInfo: EventNodeType, extraInfo: EventExtraType) => void };
+export type NodeEventsCallback = {
+    mousedownCallback: (event: MouseEvent, nodeInfo: EventNodeType, extraInfo: EventExtraType) => void;
+    mouseupCallback: (event: MouseEvent) => void;
+};
 
 type InteractiveHandler = (
     container: HTMLDivElement,
     canvas: HTMLCanvasElement,
     sendMonitorData: () => void
 ) => {
-    surroundContainer: (id: RendererContext["id"], property: RendererContext["containerProperty"]) => void;
+    surroundContainer: (property: RendererContext["containerProperty"]) => void;
     bindContainerEvents: () => void;
     bindNodeEventsCallback: (callbacks: NodeEventsCallback) => void;
     bindNodeEvents: () => void;
@@ -130,7 +133,7 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
      * 调用后，将操控容器渲染到指定property的渲染位置。在每次更新canvas的时候调用。
      * @param property
      */
-    const surroundContainer = (id: RendererContext["id"], property: RendererContext["containerProperty"]) => {
+    const surroundContainer = (property: RendererContext["containerProperty"]) => {
         if (!property) return;
         Object.assign(interactiveElement.style, {
             left: `${property.position.x + baseProperty.baseOffsetX}px`,
@@ -156,6 +159,12 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         });
     };
 
+    const disableMarkContainer = () => {
+        Object.assign(interactiveMarkElement.style, {
+            display: "none",
+        });
+    };
+
     /**
      * 给渲染最外层容器绑定事件处理，用来控制节点点击状态等
      */
@@ -163,13 +172,14 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
         document.onmousedown = (event) => {
             event.preventDefault();
         };
-        document.onmouseup = () => {
+        document.onmouseup = (event) => {
+            nodeEventsCallback?.mouseupCallback(event);
+            disableMarkContainer();
             if (interactiveEventsInfo.isMousedown) {
                 interactiveEventsInfo.isMousedown = false;
                 interactiveEventsInfo.currentIncrement = null;
                 interactiveEventsInfo.currentEventNode = null;
             }
-            commitUpdateMonitor();
         };
 
         /**
