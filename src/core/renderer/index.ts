@@ -59,9 +59,8 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     };
 
     /**
-     *
+     * 初始化整个渲染器
      * @param container
-     * @param isBase 是否是根节点
      */
     const initialize = (container: ContainerTypeSupports) => {
         bindContainerDOM(container);
@@ -74,6 +73,10 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         markRender();
     };
 
+    /**
+     * 绑定DOM元素到container，用来约束canvas的渲染
+     * @param container
+     */
     const bindContainerDOM = (container: ContainerTypeSupports) => {
         console.log("开始绑定容器");
         context.container = container;
@@ -185,7 +188,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
 
     /**
      * 添加渲染内容到列表
-     * @param property
+     * @param renderer
      */
     const addChildren = (renderer: RendererType) => {
         renderList.set(renderer.context.id, renderer);
@@ -210,6 +213,10 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         render();
     };
 
+    /**
+     * 更新交互容器的属性
+     * @returns
+     */
     const updateInteractiveContainer = () => {
         if (!context.interactiveInstance?.interactiveEventsInfo.isMousedown) return;
         const { interactiveInstance } = context;
@@ -221,6 +228,10 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         context.interactiveInstance?.surroundContainer(containerProperty);
     };
 
+    /**
+     * 实际渲染canvas内容
+     * @returns
+     */
     const render = () => {
         if (!context.canvas) return;
         const { ctx } = extractCanvas(context.canvas);
@@ -237,7 +248,7 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     };
 
     /**
-     * 根据点，找出最上层的容器
+     * 根据坐标，找出最上层的容器
      */
     const findLastRenderContainer = (x: number, y: number): Pick<RendererContext, "id" | "containerProperty">[] => {
         const targetList: Pick<RendererContext, "id" | "containerProperty">[] = [];
