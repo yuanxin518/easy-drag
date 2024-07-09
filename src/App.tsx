@@ -51,7 +51,7 @@ const App = () => {
             topToScreen: monitorData?.currentContainerProperty?.position.y,
             containerWidth: monitorData?.currentContainerProperty?.size.width,
             containerHeight: monitorData?.currentContainerProperty?.size.height,
-            isInteractive: monitorData?.interactiveInfo?.isMousedown,
+            isInteractive: monitorData?.interactiveInfo?.isContainerMousedown || monitorData?.interactiveInfo?.isNodeMousedown,
             interactiveNodeDesc: monitorData?.interactiveInfo?.currentEventNode?.nodeProperty.position.desc,
             interactiveStartX: monitorData?.interactiveInfo?.currentIncrement?.startX,
             interactiveStartY: monitorData?.interactiveInfo?.currentIncrement?.startY,

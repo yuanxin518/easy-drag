@@ -1,5 +1,4 @@
 import { ContainerProperty, ElementContainer } from "../element/container";
-import { mousedownCallback } from "../handler/handleEvents";
 import { interactiveHandler, InteractiveInstance } from "../handler/interactive";
 import { interacitiveMonitor, MonitorAdapterInstance, MonitorData } from "../handler/monitor";
 import { extractCanvas } from "../utils/extractCanvas";
@@ -17,6 +16,7 @@ export type RendererContext = {
     renderContainerHeight: number;
     interactiveInstance: InteractiveInstance | null;
 };
+export type SimpleRenderContextType = Pick<RendererContext, "id" | "containerProperty">;
 
 export type RendererType = {
     context: RendererContext;
@@ -153,32 +153,42 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
     const bindCanvasEventsCallback = () => {
         if (!context.canvas) throw new Error("canvas has not been intialized.");
 
-        context.canvas.onmousemove = (event) => {
+        context.canvas.onmousedown = (event) => {
+            const topTarget = findTargetContainer(event);
             const interactiveInstance = context.interactiveInstance;
-            if (!interactiveInstance || (interactiveInstance.interactiveEventsInfo.isMousedown && interactiveInstance.interactiveContainerId)) return;
-            const canvasPos = context.canvas?.getBoundingClientRect();
-            const offsetXToCanvas = event.clientX - (canvasPos?.left || 0);
-            const offsetYToCanvas = event.clientY - (canvasPos?.top || 0);
-            const targetProperties = findLastRenderContainer(offsetXToCanvas, offsetYToCanvas);
+            // 找到交互的节点
+            if (!interactiveInstance || !topTarget || topTarget.length === 0) return;
 
-            if (targetProperties.length === 0) return;
-            const topTarget = targetProperties[0];
-            interactiveInstance.bindInteractiveContainerId(topTarget.id);
-
-            if (!topTarget) return;
-            interactiveInstance.surroundContainer(topTarget.containerProperty);
+            const target = topTarget[0];
+            interactiveInstance.handleContainerMousedown(event, target);
             commitUpdateMonitor();
+        };
+        context.canvas.onmousemove = (event) => {
+            const topTarget = findTargetContainer(event);
+            const body = document.querySelector("body");
+            if (!body) return;
+
+            // 绑定鼠标样式
+            if (topTarget) {
+                body.style.cursor = "pointer";
+            } else {
+                body.style.cursor = "auto";
+            }
+
+            context.interactiveInstance?.handleContainerMousemove(event);
         };
     };
 
     const bindInteractiveHandler = () => {
         console.log("绑定交互处理器");
         const interactiveInstance = context.interactiveInstance;
-        interactiveInstance?.bindContainerEvents();
+        interactiveInstance?.bindDocumentEvents();
         interactiveInstance?.bindNodeEventsCallback({
-            mousedownCallback,
             mouseupCallback: () => {
-                if (context.interactiveInstance?.interactiveEventsInfo.isMousedown) {
+                const info = context.interactiveInstance?.interactiveEventsInfo;
+                if (!info) return;
+                const { isNodeMousedown, isContainerMousedown } = info;
+                if (isNodeMousedown || isContainerMousedown) {
                     refreshRender();
                 }
             },
@@ -218,12 +228,12 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
      * @returns
      */
     const updateInteractiveContainer = () => {
-        if (!context.interactiveInstance?.interactiveEventsInfo.isMousedown) return;
         const { interactiveInstance } = context;
         const containerId = interactiveInstance?.interactiveContainerId;
         if (!containerId) return;
         const containerProperty = renderList.get(containerId)?.context.containerProperty;
         if (!containerProperty) return;
+
         Object.assign(containerProperty, interactiveInstance.interactiveEventsInfo.nextContainerProperty);
         context.interactiveInstance?.surroundContainer(containerProperty);
     };
@@ -247,16 +257,28 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         });
     };
 
+    const findTargetContainer = (event: MouseEvent) => {
+        const interactiveInstance = context.interactiveInstance;
+        if (!interactiveInstance || (interactiveInstance.interactiveEventsInfo.isNodeMousedown && interactiveInstance.interactiveContainerId)) return;
+        const canvasPos = context.canvas?.getBoundingClientRect();
+        const offsetXToCanvas = event.clientX - (canvasPos?.left || 0);
+        const offsetYToCanvas = event.clientY - (canvasPos?.top || 0);
+        const targetProperties = findLastRenderContainer(offsetXToCanvas, offsetYToCanvas);
+
+        if (targetProperties.length === 0) return;
+        return targetProperties;
+    };
+
     /**
      * 根据坐标，找出最上层的容器
      */
-    const findLastRenderContainer = (x: number, y: number): Pick<RendererContext, "id" | "containerProperty">[] => {
-        const targetList: Pick<RendererContext, "id" | "containerProperty">[] = [];
+    const findLastRenderContainer = (x: number, y: number): SimpleRenderContextType[] => {
+        const targetList: SimpleRenderContextType[] = [];
         const renderListEntries = renderList.entries();
 
         const priorityList: ({
             priority: number;
-        } & Pick<RendererContext, "id" | "containerProperty">)[] = [];
+        } & SimpleRenderContextType)[] = [];
         for (let i = 0; i < renderList.size; i++) {
             const [id, renderer] = renderListEntries.next().value as [string, RendererType];
             const property = renderer.context.containerProperty;

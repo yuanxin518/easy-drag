@@ -1,4 +1,4 @@
-import { RendererContext } from "../renderer";
+import { RendererContext, SimpleRenderContextType } from "../renderer";
 import initializeInteractiveEventsInfo, { InteractiveEventsInfoType } from "./handleEvents";
 import { HandleNodesType, NodeFactory } from "./handlerFactory";
 export type EventNodeType = {
@@ -11,8 +11,8 @@ export type EventExtraType = {
 };
 
 export type NodeEventsCallback = {
-    mousedownCallback: (event: MouseEvent, nodeInfo: EventNodeType, extraInfo: EventExtraType) => void;
-    mouseupCallback: (event: MouseEvent) => void;
+    mousedownCallback?: (event?: MouseEvent, nodeInfo?: EventNodeType, extraInfo?: EventExtraType) => void;
+    mouseupCallback?: (event?: MouseEvent) => void;
 };
 
 type InteractiveHandler = (
@@ -21,12 +21,15 @@ type InteractiveHandler = (
     sendMonitorData: () => void
 ) => {
     surroundContainer: (property: RendererContext["containerProperty"]) => void;
-    bindContainerEvents: () => void;
+    bindDocumentEvents: () => void;
     bindNodeEventsCallback: (callbacks: NodeEventsCallback) => void;
     bindNodeEvents: () => void;
     interactiveContainerId: null | string;
     bindInteractiveContainerId: (id: string) => void;
     interactiveEventsInfo: InteractiveEventsInfoType;
+    handleContainerMousedown: (event: MouseEvent, container: SimpleRenderContextType) => void;
+    handleContainerMousemove: (event: MouseEvent) => void;
+    handleContainerMouseup: () => void;
     updateContainerProperty: (property: RendererContext["containerProperty"]) => RendererContext["containerProperty"];
     markContainer: (property: RendererContext["containerProperty"]) => void;
     setCanvasMaxSize: (maxWidth: number, maxHeight: number) => void;
@@ -86,32 +89,41 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
      */
     const updateContainerProperty = (property: RendererContext["containerProperty"]) => {
         if (!interactiveEventsInfo.currentIncrement || !property) return null;
-        const { vertexOffsetX, vertexOffsetY, startX, startY, currentX, currentY } = interactiveEventsInfo.currentIncrement;
+        const { vertexOffsetX, vertexOffsetY, widthIncrement, heightIncrement, startX, startY, currentX, currentY } = interactiveEventsInfo.currentIncrement;
 
-        let pX = property.position.x,
-            pY = property.position.y,
-            sW = property.size.width,
-            sH = property.size.height;
+        let pX = property.position.x + vertexOffsetX,
+            pY = property.position.y + vertexOffsetY,
+            sW = property.size.width + widthIncrement,
+            sH = property.size.height + heightIncrement;
 
-        const incrementX = Math.min(Math.max(-startX + baseProperty.baseOffsetX, vertexOffsetX), property.size.width);
-        const incrementY = Math.min(Math.max(-startY + baseProperty.baseOffsetY, vertexOffsetY), property.size.height);
-
-        // 不为零 则为第一或第三个点，改变了左上顶点的位置
-        if (vertexOffsetX !== 0) {
-            pX = pX + incrementX;
-            sW = sW - incrementX;
-        } else {
-            const maxWidth = baseProperty.baseOffsetX + baseProperty.canvasMaxWidth - startX; //最大宽度增量
-            const incrementWidth = currentX !== void 0 ? Math.max(currentX - startX, -sW) : 0;
-            sW = sW + Math.min(incrementWidth, maxWidth);
+        // // 约束容器位置
+        pX = Math.min(Math.max(0, pX), baseProperty.canvasMaxWidth - property.size.width);
+        pY = Math.min(Math.max(0, pY), baseProperty.canvasMaxHeight - property.size.height);
+        sW = Math.min(baseProperty.canvasMaxWidth - property.position.x, Math.max(1, sW));
+        sH = Math.min(baseProperty.canvasMaxHeight - property.position.y, Math.max(1, sH));
+        if (pX === 0) {
+            if (vertexOffsetX < 0) {
+                sW = property.size.width;
+            }
+            if (widthIncrement !== 0) {
+                sW += property.position.x;
+            }
         }
-        if (vertexOffsetY !== 0) {
-            pY = pY + incrementY;
-            sH = sH - incrementY;
-        } else {
-            const maxHeight = baseProperty.baseOffsetY + baseProperty.canvasMaxHeight - startY; //最大高度增量
-            const incrementHeight = currentY !== void 0 ? Math.max(currentY - startY, -sH) : 0;
-            sH = sH + Math.min(incrementHeight, maxHeight);
+        if (pY === 0) {
+            if (vertexOffsetY < 0) {
+                sH = property.size.height;
+            }
+            if (heightIncrement !== 0) {
+                sW += property.position.y;
+            }
+        }
+        if (sW === 1) {
+            if (vertexOffsetX > 0) pX = property.position.x + property.size.width;
+            else pX = property.position.x;
+        }
+        if (sH === 1) {
+            if (vertexOffsetY > 0) pY = property.position.y + property.size.height;
+            else pY = property.position.y;
         }
 
         interactiveEventsInfo.nextContainerProperty = {
@@ -166,58 +178,150 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
     };
 
     /**
+     * 处理容器上mousedown逻辑
+     */
+    const handleContainerMousedown = (event: MouseEvent, target: SimpleRenderContextType) => {
+        interactiveEventsInfo.isContainerMousedown = true;
+        interactiveEventsInfo.mousedownEvent = event;
+        recordIncrementStartOffset(event);
+        bindInteractiveContainerId(target.id);
+        surroundContainer(target.containerProperty);
+        commitUpdateMonitor();
+    };
+
+    /**
+     * 处理容器上mousedown逻辑
+     */
+    const handleContainerMouseup = () => {
+        if (interactiveEventsInfo.isContainerMousedown) {
+            interactiveEventsInfo.isContainerMousedown = false;
+            interactiveEventsInfo.mousedownEvent = null;
+        }
+    };
+    /**
+     * 处理节点上mousedown逻辑
+     */
+    const handleNodeMouseup = () => {
+        if (interactiveEventsInfo.isNodeMousedown) {
+            interactiveEventsInfo.isNodeMousedown = false;
+            interactiveEventsInfo.currentEventNode = null;
+        }
+    };
+
+    /**
+     * 处理容器上mousemove逻辑
+     */
+    const handleContainerMousemove = (event: MouseEvent) => {
+        if (interactiveEventsInfo.isContainerMousedown && interactiveEventsInfo.mousedownEvent) {
+            recordIncrementVertex(event);
+            commitUpdateMonitor();
+        }
+    };
+
+    /**
+     * 处理节点上mousemove逻辑
+     */
+    const handleNodeMousemove = (event: MouseEvent) => {
+        if (interactiveEventsInfo.isNodeMousedown && interactiveEventsInfo.currentIncrement) {
+            recordIncrementVertex(event);
+            commitUpdateMonitor();
+        }
+    };
+
+    /**
      * 给渲染最外层容器绑定事件处理，用来控制节点点击状态等
      */
-    const bindContainerEvents = () => {
+    const bindDocumentEvents = () => {
         document.onmousedown = (event) => {
             event.preventDefault();
         };
         document.onmouseup = (event) => {
-            nodeEventsCallback?.mouseupCallback(event);
+            nodeEventsCallback?.mouseupCallback && nodeEventsCallback.mouseupCallback(event);
+            interactiveEventsInfo.currentIncrement = null;
+            handleContainerMouseup();
+            handleNodeMouseup();
             disableMarkContainer();
-            if (interactiveEventsInfo.isMousedown) {
-                interactiveEventsInfo.isMousedown = false;
-                interactiveEventsInfo.currentIncrement = null;
-                interactiveEventsInfo.currentEventNode = null;
-            }
+            commitUpdateMonitor();
         };
 
         /**
          * 用来控制节点move
          */
         document.onmousemove = (event) => {
-            if (interactiveEventsInfo.isMousedown && interactiveEventsInfo.currentIncrement) {
-                interactiveEventsInfo.currentIncrement.currentX = event.clientX;
-                interactiveEventsInfo.currentIncrement.currentY = event.clientY;
-
-                const incrementX = interactiveEventsInfo.currentIncrement.currentX - interactiveEventsInfo.currentIncrement.startX;
-                const incrementY = interactiveEventsInfo.currentIncrement.currentY - interactiveEventsInfo.currentIncrement.startY;
-                // 判断尺寸增量
-                switch (interactiveEventsInfo.currentEventNode?.nodeProperty.position.value) {
-                    case 1:
-                        interactiveEventsInfo.currentIncrement.vertexOffsetX = incrementX;
-                        interactiveEventsInfo.currentIncrement.vertexOffsetY = incrementY;
-                        break;
-                    case 2:
-                        interactiveEventsInfo.currentIncrement.vertexOffsetX = 0;
-                        interactiveEventsInfo.currentIncrement.vertexOffsetY = incrementY;
-                        break;
-
-                    case 3:
-                        interactiveEventsInfo.currentIncrement.vertexOffsetX = incrementX;
-                        interactiveEventsInfo.currentIncrement.vertexOffsetY = 0;
-                        break;
-
-                    case 4:
-                        interactiveEventsInfo.currentIncrement.vertexOffsetX = 0;
-                        interactiveEventsInfo.currentIncrement.vertexOffsetY = 0;
-                        break;
-                    default:
-                }
-
-                commitUpdateMonitor();
-            }
+            handleContainerMousemove(event);
+            handleNodeMousemove(event);
         };
+    };
+
+    /**
+     * 记录交互开始的增量值
+     * @param startX
+     * @param startY
+     */
+    const recordIncrementStartOffset = (event: MouseEvent) => {
+        const startX = event.clientX;
+        const startY = event.clientY;
+        interactiveEventsInfo.currentIncrement = {
+            startX,
+            startY,
+            currentX: startX,
+            currentY: startY,
+            vertexOffsetX: 0,
+            vertexOffsetY: 0,
+            widthIncrement: 0,
+            heightIncrement: 0,
+        };
+    };
+
+    /**
+     * 记录当前偏移并计算顶点偏移
+     * @param event
+     * @returns
+     */
+    const recordIncrementVertex = (event: MouseEvent) => {
+        if (!interactiveEventsInfo.currentIncrement) return;
+        interactiveEventsInfo.currentIncrement.currentX = event.clientX;
+        interactiveEventsInfo.currentIncrement.currentY = event.clientY;
+
+        const incrementX = interactiveEventsInfo.currentIncrement.currentX - interactiveEventsInfo.currentIncrement.startX;
+        const incrementY = interactiveEventsInfo.currentIncrement.currentY - interactiveEventsInfo.currentIncrement.startY;
+
+        const { isContainerMousedown, isNodeMousedown } = interactiveEventsInfo;
+        if (isContainerMousedown) {
+            interactiveEventsInfo.currentIncrement.vertexOffsetX = incrementX;
+            interactiveEventsInfo.currentIncrement.vertexOffsetY = incrementY;
+        }
+        if (isNodeMousedown) {
+            // 判断尺寸增量
+            switch (interactiveEventsInfo.currentEventNode?.nodeProperty.position.value) {
+                case 1:
+                    interactiveEventsInfo.currentIncrement.vertexOffsetX = incrementX;
+                    interactiveEventsInfo.currentIncrement.vertexOffsetY = incrementY;
+                    interactiveEventsInfo.currentIncrement.widthIncrement = -incrementX;
+                    interactiveEventsInfo.currentIncrement.heightIncrement = -incrementY;
+                    break;
+                case 2:
+                    interactiveEventsInfo.currentIncrement.vertexOffsetX = 0;
+                    interactiveEventsInfo.currentIncrement.vertexOffsetY = incrementY;
+                    interactiveEventsInfo.currentIncrement.widthIncrement = incrementX;
+                    interactiveEventsInfo.currentIncrement.heightIncrement = -incrementY;
+                    break;
+                case 3:
+                    interactiveEventsInfo.currentIncrement.vertexOffsetX = incrementX;
+                    interactiveEventsInfo.currentIncrement.vertexOffsetY = 0;
+                    interactiveEventsInfo.currentIncrement.widthIncrement = -incrementX;
+                    interactiveEventsInfo.currentIncrement.heightIncrement = incrementY;
+                    break;
+
+                case 4:
+                    interactiveEventsInfo.currentIncrement.vertexOffsetX = 0;
+                    interactiveEventsInfo.currentIncrement.vertexOffsetY = 0;
+                    interactiveEventsInfo.currentIncrement.widthIncrement = incrementX;
+                    interactiveEventsInfo.currentIncrement.heightIncrement = incrementY;
+                    break;
+                default:
+            }
+        }
     };
 
     const bindNodeEventsCallback = (callbacks?: NodeEventsCallback) => {
@@ -229,26 +333,16 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
      * 为可操作节点绑定事件，用来操控位置大小变化等
      */
     const bindNodeEvents = () => {
-        const extraWidth = HANDLE_NODE_WIDTH / 2 - BORDER_WIDTH;
         Array.from(nodes).forEach((eventNode, index) => {
             eventNode.node.onmousedown = (event: MouseEvent) => {
-                const nodeX = eventNode.node.offsetLeft + interactiveElement.offsetLeft + ([2, 4].includes(eventNode.nodeProperty.position.value) ? extraWidth : 0);
-                const nodeY = eventNode.node.offsetTop + interactiveElement.offsetTop + ([3, 4].includes(eventNode.nodeProperty.position.value) ? extraWidth : 0);
-
-                interactiveEventsInfo.isMousedown = true;
+                recordIncrementStartOffset(event);
+                interactiveEventsInfo.isNodeMousedown = true;
                 interactiveEventsInfo.currentEventNode = eventNode;
-                interactiveEventsInfo.currentIncrement = {
-                    startX: nodeX,
-                    startY: nodeY,
-                    currentX: nodeX,
-                    currentY: nodeY,
-                    vertexOffsetX: 0,
-                    vertexOffsetY: 0,
-                };
 
-                nodeEventsCallback?.mousedownCallback(event, eventNode, {
-                    interactiveContainerId,
-                });
+                nodeEventsCallback?.mousedownCallback &&
+                    nodeEventsCallback?.mousedownCallback(event, eventNode, {
+                        interactiveContainerId,
+                    });
                 commitUpdateMonitor();
             };
         });
@@ -259,8 +353,11 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
             surroundContainer,
             bindNodeEventsCallback,
             bindNodeEvents,
-            bindContainerEvents,
+            bindDocumentEvents,
             interactiveEventsInfo,
+            handleContainerMousedown,
+            handleContainerMousemove,
+            handleContainerMouseup,
             bindInteractiveContainerId,
             interactiveContainerId,
             updateContainerProperty,
