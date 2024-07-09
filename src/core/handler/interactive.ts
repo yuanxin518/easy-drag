@@ -114,7 +114,7 @@ export const interactiveHandler: InteractiveHandler = (container: HTMLDivElement
                 sH = property.size.height;
             }
             if (heightIncrement !== 0) {
-                sW += property.position.y;
+                sH += property.position.y;
             }
         }
         if (sW === 1) {
