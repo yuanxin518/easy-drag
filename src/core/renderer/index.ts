@@ -24,6 +24,7 @@ export type RendererType = {
     addChildren: (renderer: RendererType) => void;
     addMonitor: (monitorAdapter: MonitorAdapterInstance) => void;
     refreshRender: () => void;
+    downloadImage: () => void;
 };
 
 /**
@@ -246,7 +247,8 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         if (!context.canvas) return;
         const { ctx } = extractCanvas(context.canvas);
         if (!ctx) return;
-
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, context.canvas.width, context.canvas.height);
         renderList.forEach((renderer, id) => {
             const property = renderer.context.containerProperty;
             if (!property) return;
@@ -351,12 +353,25 @@ const Renderer = (containerProperty?: ContainerProperty): RendererType => {
         monitor.updateData(sendData);
     };
 
+    // [feature] canvas to image
+    const downloadImage = () => {
+        context.canvas?.toBlob((blob) => {
+            if (!blob) return;
+
+            const clickElement = document.createElement("a");
+            clickElement.download = "canvas.jpg";
+            clickElement.href = URL.createObjectURL(blob);
+            clickElement.click();
+            URL.revokeObjectURL(clickElement.href);
+        }, "image/jpeg");
+    };
     return {
         context,
         initialize,
         addChildren,
         addMonitor,
         refreshRender,
+        downloadImage,
     };
 };
 
